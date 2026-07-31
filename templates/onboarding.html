@@ -1,0 +1,67 @@
+{% if current_user.is_authenticated %}
+<div id="onboarding" class="onboarding" hidden aria-hidden="true">
+  <div class="onboarding-backdrop"></div>
+  <div class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+    <div class="onboarding-progress" aria-hidden="true">
+      <span class="onboarding-dot active" data-step="0"></span>
+      <span class="onboarding-dot" data-step="1"></span>
+      <span class="onboarding-dot" data-step="2"></span>
+      <span class="onboarding-dot" data-step="3"></span>
+    </div>
+
+    <div class="onboarding-slides">
+      <section class="onboarding-slide active" data-step="0">
+        <div class="onboarding-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="56" height="56">
+            <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" stroke-width="1.6" class="ob-ring"/>
+            <circle cx="32" cy="10" r="3.2" fill="currentColor" class="ob-marker"/>
+            <path d="M20 38h24M24 30h16M28 46h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <h2 id="onboarding-title">Welcome to Ledger</h2>
+        <p>Your stokvel passbook on the web — balances, forecasts, and contributions in one place.</p>
+      </section>
+
+      <section class="onboarding-slide" data-step="1">
+        <div class="onboarding-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="56" height="56">
+            <rect x="8" y="16" width="20" height="32" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+            <rect x="36" y="16" width="20" height="32" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+            <path d="M18 28h8M18 36h8M46 28h8M46 36h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h2>Groups &amp; members</h2>
+        <p>Create a stokvel or join with an invite code. Switch groups anytime from the menu.</p>
+      </section>
+
+      <section class="onboarding-slide" data-step="2">
+        <div class="onboarding-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="56" height="56">
+            <polyline points="10,44 22,28 34,36 50,14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="ob-line"/>
+            <polyline points="40,14 50,14 50,24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h2>Live forecasts</h2>
+        <p>Slide the top tabs to Overview, Member Forecast, and more — Holt-Winters fits on your data. Find Accuracy Health under Settings.</p>
+      </section>
+
+      <section class="onboarding-slide" data-step="3">
+        <div class="onboarding-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="56" height="56">
+            <rect x="12" y="18" width="40" height="28" rx="4" fill="none" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 28h40" stroke="currentColor" stroke-width="2"/>
+            <circle cx="44" cy="40" r="3" fill="currentColor"/>
+          </svg>
+        </div>
+        <h2>Payments &amp; menu</h2>
+        <p>Contribute via PayFast and request withdrawals from Payments. Open the ☰ menu for Groups, Settings, and log out.</p>
+      </section>
+    </div>
+
+    <div class="onboarding-actions">
+      <button type="button" class="btn secondary" id="onboarding-skip">Skip</button>
+      <button type="button" class="btn" id="onboarding-next">Next</button>
+    </div>
+  </div>
+</div>
+{% endif %}

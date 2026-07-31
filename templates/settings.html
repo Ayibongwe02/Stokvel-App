@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <span class="eyebrow">Account</span>
+    <h1>Settings</h1>
+    <p>Profile, password, and membership for your active group.</p>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Profile</div>
+      <form method="post" action="{{ url_for('settings.update_profile') }}">
+        {{ profile_form.csrf_token }}
+        <div class="form-row">
+          <div class="control-group grow">
+            {{ profile_form.name.label }}
+            {{ profile_form.name() }}
+          </div>
+        </div>
+        {{ profile_form.submit(class="btn") }}
+      </form>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Change password</div>
+      <form method="post" action="{{ url_for('settings.change_password') }}">
+        {{ password_form.csrf_token }}
+        <div class="form-row">
+          <div class="control-group grow">
+            {{ password_form.current_password.label }}
+            {{ password_form.current_password() }}
+          </div>
+          <div class="control-group grow">
+            {{ password_form.new_password.label }}
+            {{ password_form.new_password() }}
+          </div>
+          <div class="control-group grow">
+            {{ password_form.confirm_password.label }}
+            {{ password_form.confirm_password() }}
+          </div>
+        </div>
+        {{ password_form.submit(class="btn") }}
+      </form>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Notification preferences</div>
+    <form method="post" action="{{ url_for('settings.update_notifications') }}">
+      {{ notif_form.csrf_token }}
+      <div class="form-row">
+        <div class="control-group grow">
+          {{ notif_form.phone.label }}
+          {{ notif_form.phone() }}
+        </div>
+        <div class="control-group">
+          {{ notif_form.notify_email.label }}
+          {{ notif_form.notify_email() }}
+        </div>
+        <div class="control-group">
+          {{ notif_form.notify_in_app.label }}
+          {{ notif_form.notify_in_app() }}
+        </div>
+      </div>
+      {{ notif_form.submit(class="btn") }}
+    </form>
+  </div>
+
+  {% if membership and membership.role == 'admin' and group_settings_form %}
+  <div class="panel">
+    <div class="panel-title">{{ membership.group.name }} — group settings</div>
+    <p class="panel-caption">Contribution rules, payout rules, and withdrawal approval requirements for this group.</p>
+    <form method="post" action="{{ url_for('settings.update_group_settings') }}">
+      {{ group_settings_form.csrf_token }}
+      <div class="form-row">
+        <div class="control-group grow">
+          {{ group_settings_form.contribution_amount.label }}
+          {{ group_settings_form.contribution_amount() }}
+        </div>
+        <div class="control-group grow">
+          {{ group_settings_form.contribution_frequency.label }}
+          {{ group_settings_form.contribution_frequency() }}
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="control-group grow">
+          {{ group_settings_form.payout_rules.label }}
+          {{ group_settings_form.payout_rules() }}
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="control-group grow">
+          {{ group_settings_form.withdrawal_approval_threshold.label }}
+          {{ group_settings_form.withdrawal_approval_threshold() }}
+        </div>
+        <div class="control-group grow">
+          {{ group_settings_form.required_approvals.label }}
+          {{ group_settings_form.required_approvals() }}
+        </div>
+      </div>
+      {{ group_settings_form.submit(class="btn") }}
+    </form>
+  </div>
+  {% endif %}
+
+  {% if membership %}
+  <div class="panel">
+    <div class="panel-title">{{ membership.group.name }} — membership</div>
+    <p class="panel-caption">
+      You're a <strong>{{ membership.role }}</strong> of this group.
+      {% if membership.role == 'admin' %}Invite code: <code>{{ membership.group.invite_code }}</code>{% endif %}
+    </p>
+
+    {% for gm in group_members %}
+      <div class="member-row">
+        <div>
+          <div class="name">{{ gm.user.name }}{% if gm.user_id == membership.user_id %} (you){% endif %}</div>
+          <div class="email">{{ gm.user.email }} · {{ gm.role }}</div>
+        </div>
+        {% if membership.role == 'admin' and gm.user_id != membership.user_id %}
+          <form method="post" action="{{ url_for('settings.remove_member') }}">
+            {{ remove_form.csrf_token }}
+            <input type="hidden" name="member_user_id" value="{{ gm.user_id }}">
+            <button type="submit" class="btn secondary">Remove</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    <div class="form-row" style="margin-top: 18px;">
+      {% if membership.role == 'admin' %}
+        <form method="post" action="{{ url_for('settings.regenerate_invite') }}">
+          {{ invite_form.csrf_token }}
+          {{ invite_form.submit(class="btn secondary") }}
+        </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('settings.leave_group') }}" onsubmit="return confirm('Leave {{ membership.group.name }}?');">
+        {{ leave_form.csrf_token }}
+        {{ leave_form.submit(class="btn secondary") }}
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if membership %}
+  <div class="panel" id="accuracy-health-settings">
+    <div class="panel-title">Accuracy Health Settings</div>
+    <p class="panel-caption">Holt-Winters, evaluated live via a train/holdout backtest on each member's series.</p>
+
+    {% if not acc_has_members %}
+      <p class="panel-caption">No members in this group yet.</p>
+    {% elif not acc_best_model %}
+      <div class="callout error">Not enough data to backtest yet.</div>
+    {% else %}
+      <div class="callout success">Backtest complete for all members below.</div>
+
+      <div class="grid-3">
+        <div class="panel"><div id="chart-rmse" class="chart"></div></div>
+        <div class="panel"><div id="chart-mae" class="chart"></div></div>
+        <div class="panel"><div id="chart-mape" class="chart"></div></div>
+      </div>
+
+      <div class="panel-title" style="font-size: 0.98rem; margin-top: 4px;">Per-Member Accuracy</div>
+      <div class="table-scroll">
+        <table class="ledger">
+          <thead>
+            <tr>
+              <th>Member</th><th>RMSE</th><th>MAE</th><th>MAPE</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in acc_pivot_rows %}
+            <tr>
+              <td>{{ r.member }}</td>
+              <td>{{ r["Holt-Winters_RMSE"] }}</td>
+              <td>{{ r["Holt-Winters_MAE"] }}</td>
+              <td>{{ r["Holt-Winters_MAPE"] }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if acc_hist_available and acc_hist_comparison %}
+      <div class="panel-title" style="font-size: 0.98rem; margin-top: 20px;">Historical Model Comparison</div>
+      <p class="panel-caption">Average RMSE per period, from the stored 2024–2025 forecasting dataset.</p>
+      <div class="table-scroll">
+        <table class="ledger">
+          <thead><tr><th>Member</th><th>Holt-Winters RMSE</th><th>ARIMA RMSE</th></tr></thead>
+          <tbody>
+            {% for r in acc_hist_comparison %}
+            <tr><td>{{ r.member }}</td><td>{{ r.hw }}</td><td>{{ r.arima }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <p class="panel-caption" style="margin-top: 14px;">No historical forecast CSV loaded — showing live backtest results only.</p>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if acc_bar_charts %}
+<script>
+  const figRmse = {{ acc_bar_charts.RMSE | safe }};
+  const figMae = {{ acc_bar_charts.MAE | safe }};
+  const figMape = {{ acc_bar_charts.MAPE | safe }};
+  Plotly.newPlot('chart-rmse', figRmse.data, figRmse.layout, {responsive: true, displaylogo: false});
+  Plotly.newPlot('chart-mae', figMae.data, figMae.layout, {responsive: true, displaylogo: false});
+  Plotly.newPlot('chart-mape', figMape.data, figMape.layout, {responsive: true, displaylogo: false});
+</script>
+{% endif %}
+{% endblock %}

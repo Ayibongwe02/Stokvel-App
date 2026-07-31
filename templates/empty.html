@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}No data{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1>No data available</h1>
+    <p>Upload a transactions CSV in the Data Source tab to get started.</p>
+  </div>
+  <a class="btn" href="{{ url_for('data_source') }}">Go to Data Source</a>
+{% endblock %}

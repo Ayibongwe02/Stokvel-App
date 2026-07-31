@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Member Forecast{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <span class="eyebrow">Live model</span>
+    <h1>Member Balance Forecast</h1>
+    <p>Statistical forecast of future balance, fitted on the fly from each member's transaction history.</p>
+  </div>
+
+  <form class="panel" method="get" action="{{ url_for('forecast') }}" id="forecast-form">
+    <div class="form-row">
+      <div class="control-group">
+        <label for="member">Member</label>
+        <select name="member" id="member" onchange="document.getElementById('forecast-form').requestSubmit()">
+          {% for m in members %}
+            <option value="{{ m }}" {{ 'selected' if m == member }}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="horizon">Forecast horizon (months) <span class="slider-value" id="horizon-value">{{ horizon }}</span></label>
+        <input type="range" min="1" max="12" name="horizon" id="horizon" value="{{ horizon }}"
+               oninput="document.getElementById('horizon-value').innerText = this.value"
+               onchange="document.getElementById('forecast-form').requestSubmit()">
+      </div>
+  </form>
+
+  <div style="margin-bottom: 18px;">
+    <span class="badge">Region: {{ meta_m.Region }}</span>
+    <span class="badge teal">Category: {{ meta_m.Member_Category }}</span>
+    <span class="badge">Historical horizon: {{ meta_m.get('Forecast_Horizon', 'n/a') }}</span>
+  </div>
+
+  {% if warning %}
+    <div class="callout error">{{ warning }}</div>
+  {% else %}
+    {% if hw_note %}<div class="callout">{{ hw_note }}</div>{% endif %}
+
+    <div class="panel">
+      <div id="chart-forecast" class="chart"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Contributions vs Withdrawals (2026)</div>
+      {% if flow_json %}
+        <div id="chart-flow" class="chart"></div>
+      {% else %}
+        <p class="panel-caption">No 2026 transaction records for this member.</p>
+      {% endif %}
+    </div>
+
+    <details class="panel">
+      <summary style="cursor:pointer; font-weight:600;">View raw historical + transaction data</summary>
+      <div class="table-scroll">
+        <table class="ledger" style="margin-top:14px;">
+          <thead><tr><th>Date</th><th>Balance</th></tr></thead>
+          <tbody>
+            {% for date, balance in series_table %}
+              <tr><td>{{ date }}</td><td>R {{ "{:,.0f}".format(balance) }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if chart_json %}
+<script>
+  const figForecast = {{ chart_json | safe }};
+  Plotly.newPlot('chart-forecast', figForecast.data, figForecast.layout, {responsive: true, displaylogo: false});
+  {% if flow_json %}
+  const figFlow = {{ flow_json | safe }};
+  Plotly.newPlot('chart-flow', figFlow.data, figFlow.layout, {responsive: true, displaylogo: false});
+  {% endif %}
+</script>
+{% endif %}
+{% endblock %}

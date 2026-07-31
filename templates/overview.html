@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <span class="eyebrow">Group ledger</span>
+    <h1>Group Overview</h1>
+    <p>Snapshot of contributions, withdrawals, and balances across all members.</p>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Group Balance</div>
+      <div class="stat-value" data-count="{{ total_balance }}">R {{ "{:,.0f}".format(total_balance) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Contributions (2026)</div>
+      <div class="stat-value" data-count="{{ total_contrib }}">R {{ "{:,.0f}".format(total_contrib) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Withdrawals (2026)</div>
+      <div class="stat-value negative" data-count="{{ total_withdraw }}">R {{ "{:,.0f}".format(total_withdraw) }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Net Flow</div>
+      <div class="stat-value {{ 'negative' if net_flow < 0 }}" data-count="{{ net_flow }}">R {{ "{:,.0f}".format(net_flow) }}</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Balance Growth by Member</div>
+    <p class="panel-caption">Running balance for every member across 2026 transaction history.</p>
+    <div id="chart-growth" class="chart"></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Members by Category</div>
+      <div id="chart-category" class="chart"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Members by Region</div>
+      <div id="chart-region" class="chart"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Member Summary</div>
+    <div class="table-scroll">
+      <table class="ledger">
+        <thead>
+          <tr><th>Member</th><th>Region</th><th>Category</th><th>Current Balance</th><th>Total Contributed</th><th>Total Withdrawn</th></tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td>{{ r.member }}</td>
+            <td>{{ r.region }}</td>
+            <td>{{ r.category }}</td>
+            <td>R {{ "{:,.0f}".format(r.balance) if r.balance is not none else "—" }}</td>
+            <td>R {{ "{:,.0f}".format(r.contributed) }}</td>
+            <td>R {{ "{:,.0f}".format(r.withdrawn) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const figGrowth = {{ charts_json.growth | safe }};
+  const figCategory = {{ charts_json.category | safe }};
+  const figRegion = {{ charts_json.region | safe }};
+  Plotly.newPlot('chart-growth', figGrowth.data, figGrowth.layout, {responsive: true, displaylogo: false});
+  Plotly.newPlot('chart-category', figCategory.data, figCategory.layout, {responsive: true, displaylogo: false});
+  Plotly.newPlot('chart-region', figRegion.data, figRegion.layout, {responsive: true, displaylogo: false});
+</script>
+{% endblock %}
