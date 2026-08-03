@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Data Source{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <span class="eyebrow">Source</span>
+    <h1>Data Source</h1>
+    <p>Bring your own CSVs for this group, or reset to the bundled sample stokvel data.</p>
+  </div>
+
+  {% if not is_admin %}
+    <div class="callout">Only group admins can upload data or reset to sample data. Ask your group admin, or view the current data below.</div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel-title">Current source</div>
+    <p class="panel-caption">
+      {% if using_sample %}Currently showing the bundled sample data.{% else %}Currently showing a custom uploaded dataset.{% endif %}
+    </p>
+    {% if is_admin %}
+    <form method="post" action="{{ url_for('data_reset') }}">
+      {{ reset_form.csrf_token }}
+      {{ reset_form.submit(class="btn secondary") }}
+    </form>
+    {% endif %}
+  </div>
+
+  {% if is_admin %}
+  <div class="panel">
+    <div class="panel-title">Upload CSVs</div>
+    <form method="post" action="{{ url_for('data_upload') }}" enctype="multipart/form-data">
+      {{ upload_form.csrf_token }}
+      <div class="form-row">
+        <div class="control-group">
+          {{ upload_form.tx_file.label }}
+          {{ upload_form.tx_file() }}
+          {% for err in upload_form.tx_file.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+        </div>
+        <div class="control-group">
+          {{ upload_form.hist_file.label }}
+          {{ upload_form.hist_file() }}
+          {% for err in upload_form.hist_file.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+        </div>
+      </div>
+      {{ upload_form.submit(class="btn") }}
+    </form>
+  </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel-title">Expected CSV columns</div>
+    <p class="panel-caption"><strong>Transactions (required):</strong> <code>member_id, date, contribution_amount, withdrawal_amount, balance</code> — optional: <code>contribution_frequency, region, category</code></p>
+    <p class="panel-caption"><strong>Historical forecast (optional):</strong> <code>MemberID, Date, Balance</code> — optional: <code>Forecast_Balance, RMSE_HoltWinters, RMSE_ARIMA, MAE, MAPE, Region, Member_Category, Forecast_Horizon</code></p>
+  </div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Groups{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <span class="eyebrow">Workspaces</span>
+    <h1>Your Stokvel Groups</h1>
+    <p>Each group has its own members, transactions, and forecasts. Create one or join with an invite code.</p>
+  </div>
+
+  {% if memberships %}
+  <div class="panel">
+    <div class="panel-title">Your groups</div>
+    <div class="table-scroll">
+      <table class="ledger">
+        <thead><tr><th>Group</th><th>Region</th><th>Role</th><th></th></tr></thead>
+        <tbody>
+          {% for m in memberships %}
+          <tr>
+            <td>{{ m.group.name }}</td>
+            <td>{{ m.group.region or '—' }}</td>
+            <td><span class="badge {{ 'teal' if m.role == 'member' }}">{{ m.role }}</span></td>
+            <td>
+              {% if active_group_id == m.group_id %}
+                <span class="field-hint">active</span>
+              {% else %}
+                <form method="post" action="{{ url_for('groups.switch', group_id=m.group_id) }}">
+                  <button type="submit" class="btn secondary">Switch to this group</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Create a group</div>
+      <p class="panel-caption">Start a new stokvel group. You'll be its first admin, and it starts loaded with sample data you can replace any time.</p>
+      <form method="post" action="{{ url_for('groups.create') }}">
+        {{ create_form.csrf_token }}
+        <div class="form-row">
+          <div class="control-group grow">
+            {{ create_form.name.label }}
+            {{ create_form.name(placeholder="e.g. Ubuntu Savings Circle") }}
+          </div>
+          <div class="control-group grow">
+            {{ create_form.region.label }}
+            {{ create_form.region(placeholder="e.g. Gauteng") }}
+          </div>
+        </div>
+        {{ create_form.submit(class="btn") }}
+      </form>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Join a group</div>
+      <p class="panel-caption">Ask an existing member for their group's invite code.</p>
+      <form method="post" action="{{ url_for('groups.join') }}">
+        {{ join_form.csrf_token }}
+        <div class="form-row">
+          <div class="control-group grow">
+            {{ join_form.invite_code.label }}
+            {{ join_form.invite_code(placeholder="e.g. AB12CD34") }}
+          </div>
+        </div>
+        {{ join_form.submit(class="btn secondary") }}
+      </form>
+    </div>
+  </div>
+{% endblock %}
