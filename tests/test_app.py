@@ -138,6 +138,140 @@ def test_non_admin_cannot_upload_data(app, client):
         assert resp.status_code == 403
 
 
+def test_overview_shows_onboarding_checklist_for_new_admin(logged_in_with_group):
+    resp = logged_in_with_group.get("/")
+    assert resp.status_code == 200
+    assert b"Getting your group set up" in resp.data
+    assert b"Invite your first member" in resp.data
+    assert b"Upload your first transaction" in resp.data
+    assert b"Set up your invite code" in resp.data
+
+
+def test_checklist_not_shown_for_non_admin_member(app, client):
+    signup(client, email="owner3@example.com")
+    create_group(client, name="Checklist Group")
+
+    with app.app_context():
+        from src.models import Group
+
+        code = Group.query.filter_by(name="Checklist Group").first().invite_code
+
+    with app.test_client() as member_client:
+        signup(member_client, email="member3@example.com")
+        member_client.post("/groups/join", data={"invite_code": code}, follow_redirects=True)
+        resp = member_client.get("/")
+        assert b"Getting your group set up" not in resp.data
+
+
+def test_checklist_invite_step_auto_completes_once_someone_joins(app, client):
+    signup(client, email="owner4@example.com")
+    create_group(client, name="Auto Group")
+
+    with app.app_context():
+        from src.models import Group
+
+        code = Group.query.filter_by(name="Auto Group").first().invite_code
+
+    with app.test_client() as member_client:
+        signup(member_client, email="member4@example.com")
+        member_client.post("/groups/join", data={"invite_code": code}, follow_redirects=True)
+
+    resp = client.get("/")
+    # Invite step is done (crossed out, description hidden) once a second
+    # member has joined -- but the other two steps are still pending.
+    assert b"Invite your first member" in resp.data
+    assert b"Upload your first transaction" in resp.data
+
+
+def test_dismiss_one_checklist_step(logged_in_with_group):
+    resp = logged_in_with_group.post(
+        "/onboarding/checklist/step", data={"step": "invite_code"}, follow_redirects=True
+    )
+    assert resp.status_code == 200
+
+    from app import app as flask_app
+    from src.models import Group, OnboardingProgress
+
+    with flask_app.app_context():
+        group = Group.query.first()
+        progress = OnboardingProgress.query.filter_by(group_id=group.id).first()
+        assert progress.invite_code_dismissed is True
+        assert progress.invite_member_dismissed is False
+
+
+def test_hide_entire_checklist(logged_in_with_group):
+    resp = logged_in_with_group.post("/onboarding/checklist/hide", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Getting your group set up" not in resp.data
+
+    resp2 = logged_in_with_group.get("/")
+    assert b"Getting your group set up" not in resp2.data
+
+
+def test_checklist_step_dismiss_requires_admin(app, client):
+    signup(client, email="owner5@example.com")
+    create_group(client, name="Perm Group")
+
+    with app.app_context():
+        from src.models import Group
+
+        code = Group.query.filter_by(name="Perm Group").first().invite_code
+
+    with app.test_client() as member_client:
+        signup(member_client, email="member5@example.com")
+        member_client.post("/groups/join", data={"invite_code": code}, follow_redirects=True)
+        resp = member_client.post(
+            "/onboarding/checklist/step", data={"step": "invite_code"}, follow_redirects=False
+        )
+        assert resp.status_code == 403
+
+
+def test_settings_page_has_pre_register_coachmark(logged_in_with_group):
+    resp = logged_in_with_group.get("/settings/")
+    assert resp.status_code == 200
+    assert b'id="pre-register-panel"' in resp.data
+    assert b"This is where you add people" in resp.data
+
+
+def test_empty_state_is_role_aware_for_admin(app, logged_in_with_group):
+    from src.models import Group, HistoricalForecast, Transaction, db as _db2
+
+    with app.app_context():
+        group = Group.query.first()
+        Transaction.query.filter_by(group_id=group.id).delete()
+        HistoricalForecast.query.filter_by(group_id=group.id).delete()
+        _db2.session.commit()
+
+    resp = logged_in_with_group.get("/")
+    assert resp.status_code == 200
+    assert b"No data yet" in resp.data
+    assert b"Upload your members" in resp.data
+    assert b"Add a member" in resp.data
+
+
+def test_empty_state_is_role_aware_for_member(app, client):
+    from src.models import Group, HistoricalForecast, Transaction, db as _db2
+
+    signup(client, email="owner6@example.com")
+    create_group(client, name="Empty Group")
+
+    with app.app_context():
+        group = Group.query.filter_by(name="Empty Group").first()
+        code = group.invite_code
+        Transaction.query.filter_by(group_id=group.id).delete()
+        HistoricalForecast.query.filter_by(group_id=group.id).delete()
+        _db2.session.commit()
+
+    with app.test_client() as member_client:
+        signup(member_client, email="member6@example.com")
+        member_client.post("/groups/join", data={"invite_code": code}, follow_redirects=True)
+        resp = member_client.get("/")
+        assert resp.status_code == 200
+        assert b"No data yet" in resp.data
+        assert b"Ask your admin" in resp.data
+        assert b"Add a member" not in resp.data
+
+
 def test_forecasting_engine_holt_winters():
     from src.forecasting import fit_holt_winters
     import pandas as pd

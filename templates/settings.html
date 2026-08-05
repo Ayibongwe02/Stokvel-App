@@ -104,6 +104,177 @@
   </div>
   {% endif %}
 
+  {% if membership and membership.role == 'admin' %}
+  <div class="panel" id="pre-register-panel">
+    <div class="coachmark" id="coachmark-pre-register" hidden>
+      <div class="coachmark-bubble">
+        <button type="button" class="coachmark-close" aria-label="Dismiss tip">&times;</button>
+        <div class="coachmark-title">This is where you add people</div>
+        <p>Fill in what you already know — name, role, banking — and we'll generate a link they can use to finish signing up.</p>
+        <button type="button" class="btn coachmark-got-it">Got it</button>
+      </div>
+    </div>
+    <div class="panel-title">Pre-register a member</div>
+    <p class="panel-caption">Fill in what you already know; they'll get a link to set an email + password and everything below will be pre-filled on their account.</p>
+    <form method="post" action="{{ url_for('members.pre_register') }}">
+      {{ pre_register_form.csrf_token }}
+      <div class="form-row">
+        <div class="control-group grow">
+          {{ pre_register_form.name.label }}
+          {{ pre_register_form.name(placeholder="Full name") }}
+        </div>
+        <div class="control-group grow">
+          {{ pre_register_form.email.label }}
+          {{ pre_register_form.email(placeholder="optional") }}
+        </div>
+        <div class="control-group">
+          {{ pre_register_form.role.label }}
+          {{ pre_register_form.role() }}
+        </div>
+      </div>
+      <div class="form-section-label">Identity &amp; contact</div>
+      <div class="form-row">
+        <div class="control-group grow">{{ pre_register_form.phone.label }}{{ pre_register_form.phone() }}</div>
+        <div class="control-group grow">{{ pre_register_form.id_number.label }}{{ pre_register_form.id_number() }}</div>
+        <div class="control-group grow">{{ pre_register_form.occupation.label }}{{ pre_register_form.occupation() }}</div>
+      </div>
+      <div class="form-section-label">Banking details</div>
+      <div class="form-row">
+        <div class="control-group grow">{{ pre_register_form.bank_account_holder.label }}{{ pre_register_form.bank_account_holder() }}</div>
+        <div class="control-group grow">{{ pre_register_form.bank_name.label }}{{ pre_register_form.bank_name() }}</div>
+        <div class="control-group grow">{{ pre_register_form.bank_account_number.label }}{{ pre_register_form.bank_account_number() }}</div>
+        <div class="control-group grow">{{ pre_register_form.bank_branch_code.label }}{{ pre_register_form.bank_branch_code() }}</div>
+      </div>
+      <div class="form-section-label">Next of kin</div>
+      <div class="form-row">
+        <div class="control-group grow">{{ pre_register_form.next_of_kin_name.label }}{{ pre_register_form.next_of_kin_name() }}</div>
+        <div class="control-group grow">{{ pre_register_form.next_of_kin_phone.label }}{{ pre_register_form.next_of_kin_phone() }}</div>
+      </div>
+      <div class="form-section-label{% if not custom_fields %} is-hidden{% endif %}" id="custom-fields-label">{{ membership.group.name }} custom fields</div>
+      <div class="form-row" id="custom-fields-row">
+        {% for cf in custom_fields %}
+        <div class="control-group grow">
+          <label>{{ cf.label }}</label>
+          <input type="text" name="custom_{{ cf.key }}">
+        </div>
+        {% endfor %}
+      </div>
+      <div class="form-actions">
+        {{ pre_register_form.submit(class="btn") }}
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Custom membership fields</div>
+    <p class="panel-caption">Extra fields specific to your group (e.g. "Employer", "Stand number") — they'll show up on the pre-registration form above.</p>
+    {% if custom_fields %}
+    <div class="field-chip-list">
+      {% for cf in custom_fields %}
+        <div class="field-chip">
+          <span>{{ cf.label }}</span>
+          <form method="post" action="{{ url_for('members.delete_custom_field') }}">
+            {{ delete_custom_field_form.csrf_token }}
+            <input type="hidden" name="field_id" value="{{ cf.id }}">
+            <button type="submit" title="Remove {{ cf.label }}" aria-label="Remove {{ cf.label }}">&times;</button>
+          </form>
+        </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="field-chip-empty">No custom fields yet — add one below and it'll appear on the pre-registration form.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('members.add_custom_field') }}" class="add-field-form">
+      {{ custom_field_form.csrf_token }}
+      <div class="form-row">
+        <div class="control-group grow">
+          {{ custom_field_form.label.label }}
+          {{ custom_field_form.label(placeholder="e.g. Employer", id="new_custom_field_label", autocomplete="off") }}
+        </div>
+        {{ custom_field_form.submit(class="btn secondary") }}
+      </div>
+    </form>
+  </div>
+
+  <script>
+  (function () {
+    var input = document.getElementById('new_custom_field_label');
+    var sectionLabel = document.getElementById('custom-fields-label');
+    var row = document.getElementById('custom-fields-row');
+    if (!input || !row) return;
+
+    var PREVIEW_ID = 'custom-field-preview';
+
+    function render() {
+      var value = input.value.trim();
+      var preview = document.getElementById(PREVIEW_ID);
+
+      if (value) {
+        if (sectionLabel) sectionLabel.classList.remove('is-hidden');
+        if (!preview) {
+          preview = document.createElement('div');
+          preview.className = 'control-group grow is-preview';
+          preview.id = PREVIEW_ID;
+          preview.innerHTML = '<label></label><input type="text" disabled placeholder="Fills in once you save the field">';
+          row.appendChild(preview);
+        }
+        preview.querySelector('label').textContent = value + ' (preview)';
+      } else if (preview) {
+        preview.remove();
+        if (sectionLabel && row.children.length === 0) sectionLabel.classList.add('is-hidden');
+      }
+    }
+
+    input.addEventListener('input', render);
+  })();
+  </script>
+
+  <script>
+  (function () {
+    // Contextual coach-mark, first-visit-only: points at the
+    // pre-registration panel the first time an admin lands on Settings.
+    // Deliberately localStorage-based (like the modal tour) rather than
+    // server-side -- it's a one-time nudge, not state that needs to be
+    // consistent across an admin's devices.
+    var KEY = 'ledger_coachmark_pre_register_v1';
+    var mark = document.getElementById('coachmark-pre-register');
+    var panel = document.getElementById('pre-register-panel');
+    if (!mark || !panel || localStorage.getItem(KEY)) return;
+
+    mark.hidden = false;
+    panel.classList.add('coachmark-highlight');
+
+    function dismiss() {
+      localStorage.setItem(KEY, '1');
+      mark.hidden = true;
+      panel.classList.remove('coachmark-highlight');
+    }
+
+    mark.querySelector('.coachmark-close').addEventListener('click', dismiss);
+    mark.querySelector('.coachmark-got-it').addEventListener('click', dismiss);
+  })();
+  </script>
+
+  {% if pending_members %}
+  <div class="panel">
+    <div class="panel-title">Pending invites</div>
+    {% for pm in pending_members %}
+      <div class="member-row">
+        <div>
+          <div class="name">{{ pm.name }}{% if pm.email %} · {{ pm.email }}{% endif %}</div>
+          <div class="email">invite link: <code>{{ url_for('members.claim_invite', token=pm.token, _external=True) }}</code></div>
+        </div>
+        <form method="post" action="{{ url_for('members.revoke_pending') }}">
+          {{ revoke_pending_form.csrf_token }}
+          <input type="hidden" name="pending_id" value="{{ pm.id }}">
+          <button type="submit" class="btn secondary">Revoke</button>
+        </form>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+
   {% if membership %}
   <div class="panel">
     <div class="panel-title">{{ membership.group.name }} — membership</div>
@@ -143,10 +314,37 @@
   </div>
   {% endif %}
 
+  <div class="panel">
+    <div class="panel-title">Help &amp; onboarding</div>
+    <p class="panel-caption">
+      {% if membership and membership.role == 'admin' %}
+        Replay the welcome tour, including how to add members and what admins are responsible for.
+      {% else %}
+        Replay the welcome tour for a quick refresher on groups, forecasts, and payments.
+      {% endif %}
+    </p>
+    <button type="button" class="btn secondary" data-replay-onboarding>Replay onboarding tour</button>
+  </div>
+
   {% if membership %}
   <div class="panel" id="accuracy-health-settings">
     <div class="panel-title">Accuracy Health Settings</div>
     <p class="panel-caption">Holt-Winters, evaluated live via a train/holdout backtest on each member's series.</p>
+
+    {% if membership.role == 'admin' %}
+    <div class="callout {{ 'success' if group_settings and group_settings.last_retrained_at else '' }}" style="margin-bottom: 14px;">
+      {% if group_settings and group_settings.last_retrained_at %}
+        Forecasts last retrained {{ group_settings.last_retrained_at.strftime("%Y-%m-%d %H:%M UTC") }}.
+      {% else %}
+        Forecasts haven't been explicitly retrained yet.
+      {% endif %}
+      Manual transaction entries confirmed since then won't affect forecasts until you retrain.
+      <form method="post" action="{{ url_for('settings.retrain') }}" style="margin-top: 8px;">
+        {{ retrain_form.csrf_token }}
+        {{ retrain_form.submit(class="btn secondary") }}
+      </form>
+    </div>
+    {% endif %}
 
     {% if not acc_has_members %}
       <p class="panel-caption">No members in this group yet.</p>

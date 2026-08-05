@@ -29,11 +29,22 @@ from src.models import AccuracyCache, ForecastCache, db
 warnings.filterwarnings("ignore")
 
 
-def get_member_series(member_id: str, tx_df: pd.DataFrame, hist_df: pd.DataFrame, hist_available: bool) -> pd.Series:
+def get_member_series(
+    member_id: str, tx_df: pd.DataFrame, hist_df: pd.DataFrame, hist_available: bool, forecast_cutoff=None
+) -> pd.Series:
     """Chronological balance series for a member, built from live 2026
     transactions, falling back to the 2024-2025 historical dataset when
-    there isn't enough live history yet."""
+    there isn't enough live history yet.
+
+    forecast_cutoff (optional): when given, any 'manual' transaction
+    created after this timestamp is excluded from the series -- this
+    is what keeps a manual edit from silently changing a forecast
+    before an admin has explicitly hit Retrain. CSV uploads and
+    PayFast payments are never filtered; only 'manual' rows are."""
     live = tx_df[tx_df["member_id"] == member_id].sort_values("date")
+    if forecast_cutoff is not None and "source" in live.columns:
+        is_late_manual = (live["source"] == "manual") & (live["created_at"] > forecast_cutoff)
+        live = live[~is_late_manual]
     h = hist_df[hist_df["MemberID"] == member_id].sort_values("Date") if hist_available else pd.DataFrame()
     if len(live) >= 5 or h.empty:
         s = live.set_index("date")["balance"].astype(float)

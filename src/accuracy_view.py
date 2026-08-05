@@ -24,14 +24,16 @@ import pandas as pd
 
 from src import charts, forecasting
 from src.data_loader import get_dataset
+from src.models import GroupSettings
 
 
 def build_accuracy_context(group_id: int) -> dict:
     tx_df, hist_df, hist_available, meta, members = get_dataset(group_id)
+    forecast_cutoff = GroupSettings.get_or_create(group_id).last_retrained_at
 
     rows = []
     for m in members:
-        series = forecasting.get_member_series(m, tx_df, hist_df, hist_available)
+        series = forecasting.get_member_series(m, tx_df, hist_df, hist_available, forecast_cutoff)
         metrics = forecasting.get_or_backtest_metrics(group_id, m, series)
         if not metrics:
             continue

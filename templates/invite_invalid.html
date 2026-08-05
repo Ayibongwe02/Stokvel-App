@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invite not found · Ledger</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="auth-shell">
+    <div class="auth-card">
+      <div class="brand">{% include "_brand.html" %}</div>
+      <h1>This invite link isn't valid</h1>
+      <p class="panel-caption">It may have already been used or revoked. Ask whoever invited you for a fresh link, or log in if you've already claimed your account.</p>
+      <div class="auth-foot"><a href="{{ url_for('auth.login') }}" style="color: var(--marigold-ink);">Log in</a></div>
+    </div>
+  </div>
+</body>
+</html>

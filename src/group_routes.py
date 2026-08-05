@@ -12,7 +12,7 @@ from flask_login import current_user, login_required
 
 from src.data_loader import seed_group_with_sample_data
 from src.forms import GroupCreateForm, GroupJoinForm
-from src.models import Group, GroupMembership, db
+from src.models import Group, GroupMembership, GroupSettings, db
 
 bp = Blueprint("groups", __name__, url_prefix="/groups")
 
@@ -55,6 +55,7 @@ def create():
     db.session.add(membership)
     db.session.commit()
 
+    GroupSettings.get_or_create(group.id)
     seed_group_with_sample_data(group.id)
 
     session["active_group_id"] = group.id

@@ -1,9 +1,23 @@
 {% extends "base.html" %}
 {% block title %}No data{% endblock %}
 {% block content %}
+  {% set is_admin = onboarding_membership and onboarding_membership.role == 'admin' %}
+
+  {% include "_onboarding_checklist.html" %}
+
   <div class="page-head">
-    <h1>No data available</h1>
-    <p>Upload a transactions CSV in the Data Source tab to get started.</p>
+    <h1>No data yet</h1>
+    {% if is_admin %}
+    <p>This group doesn't have any transactions loaded. Upload your members' contribution data from the Data Source tab, or pre-register a member first if you haven't added anyone yet.</p>
+    {% else %}
+    <p>This group doesn't have any transactions loaded yet. Ask your admin to add you and upload the group's contribution data — you'll see your balance here as soon as it's in.</p>
+    {% endif %}
   </div>
-  <a class="btn" href="{{ url_for('data_source') }}">Go to Data Source</a>
+
+  {% if is_admin %}
+  <div class="empty-actions">
+    <a class="btn" href="{{ url_for('data_source') }}">Go to Data Source</a>
+    <a class="btn secondary" href="{{ url_for('settings.index') }}">Add a member</a>
+  </div>
+  {% endif %}
 {% endblock %}

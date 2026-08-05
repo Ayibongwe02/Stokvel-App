@@ -68,12 +68,14 @@
               <div class="hamburger-label">Switch group</div>
               {% for grp in user_groups %}
               <form method="post" action="{{ url_for('groups.switch', group_id=grp.id) }}" class="hamburger-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="hamburger-item {{ 'active' if active_group and grp.id == active_group.id }}" role="menuitem">{{ grp.name }}</button>
               </form>
               {% endfor %}
               {% endif %}
               <div class="hamburger-divider"></div>
               <form method="post" action="{{ url_for('auth.logout') }}" class="hamburger-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="hamburger-item danger" role="menuitem">Log out</button>
               </form>
             </div>
@@ -115,6 +117,12 @@
               <svg class="nav-icon" viewBox="0 0 20 20" style="--dash:50"><ellipse cx="10" cy="5" rx="6.2" ry="2.4"/><path d="M3.8 5v4.2c0 1.3 2.8 2.4 6.2 2.4s6.2-1.1 6.2-2.4V5"/><path d="M3.8 9.2v4.4c0 1.3 2.8 2.4 6.2 2.4s6.2-1.1 6.2-2.4V9.2"/></svg>
             </span>
             <span class="nav-label">Payments{% if unread_notifications %} <span class="badge notify">{{ unread_notifications }}</span>{% endif %}</span>
+          </a>
+          <a href="{{ url_for('transactions.index') }}" class="slide-nav-item {{ 'active' if active_endpoint and active_endpoint.startswith('transactions.') }}" data-nav="transactions">
+            <span class="nav-cube">
+              <svg class="nav-icon" viewBox="0 0 20 20" style="--dash:40"><rect x="3" y="3.5" width="14" height="13" rx="1.2"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="11.5" x2="11.5" y2="11.5"/></svg>
+            </span>
+            <span class="nav-label">Transactions</span>
           </a>
         </div>
       </nav>
@@ -255,9 +263,15 @@
       });
     }
 
-    var OB_KEY = 'ledger_onboarding_v1';
     var ob = document.getElementById('onboarding');
-    if (ob && !localStorage.getItem(OB_KEY)) {
+    if (ob) {
+      // Seen-state is tracked per role variant (member/admin), so someone
+      // promoted from member to admin automatically gets the admin-only
+      // slides (invites, admin responsibilities) instead of staying
+      // permanently dismissed from their earlier member-level tour.
+      var variant = ob.getAttribute('data-variant') || 'member';
+      var OB_KEY = 'ledger_onboarding_v2_' + variant;
+
       var step = 0;
       var slides = ob.querySelectorAll('.onboarding-slide');
       var dots = ob.querySelectorAll('.onboarding-dot');
@@ -287,10 +301,13 @@
         }, reduceMotion ? 0 : 380);
       }
 
-      document.body.classList.add('onboarding-open');
-      ob.hidden = false;
-      ob.setAttribute('aria-hidden', 'false');
-      showStep(0);
+      function openOnboarding() {
+        ob.classList.remove('onboarding-out');
+        document.body.classList.add('onboarding-open');
+        ob.hidden = false;
+        ob.setAttribute('aria-hidden', 'false');
+        showStep(0);
+      }
 
       nextBtn.addEventListener('click', function () {
         if (step < total - 1) showStep(step + 1);
@@ -298,6 +315,18 @@
       });
       skipBtn.addEventListener('click', closeOnboarding);
       ob.querySelector('.onboarding-backdrop').addEventListener('click', closeOnboarding);
+
+      // Auto-launch once per role variant.
+      if (!localStorage.getItem(OB_KEY)) {
+        openOnboarding();
+      }
+
+      // Let a "Replay onboarding tour" button (e.g. in Settings) reopen it
+      // on demand, regardless of dismissed state.
+      window.replayOnboardingTour = openOnboarding;
+      document.querySelectorAll('[data-replay-onboarding]').forEach(function (btn) {
+        btn.addEventListener('click', openOnboarding);
+      });
     }
 
   })();

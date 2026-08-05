@@ -1,12 +1,29 @@
 {% if current_user.is_authenticated %}
-<div id="onboarding" class="onboarding" hidden aria-hidden="true">
+{#
+  Role-aware onboarding tour.
+  - Every visitor sees the four "core" slides (numbered co1..co4 below).
+  - Admins get two extra slides inserted before the closing slide, covering
+    the two admin-only jobs new group admins ask about most: adding a
+    member, and what "being admin" is actually responsible for.
+  - The tour is replayable from Settings ("Replay onboarding tour"), and
+    re-appears automatically the first time someone's role changes to
+    admin, even if they already dismissed the member version.
+#}
+{% set is_admin = onboarding_membership and onboarding_membership.role == 'admin' %}
+{% set ob_variant = 'admin' if is_admin else 'member' %}
+
+<div id="onboarding" class="onboarding" hidden aria-hidden="true" data-variant="{{ ob_variant }}">
   <div class="onboarding-backdrop"></div>
   <div class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
     <div class="onboarding-progress" aria-hidden="true">
       <span class="onboarding-dot active" data-step="0"></span>
       <span class="onboarding-dot" data-step="1"></span>
       <span class="onboarding-dot" data-step="2"></span>
+      {% if is_admin %}
       <span class="onboarding-dot" data-step="3"></span>
+      <span class="onboarding-dot" data-step="4"></span>
+      {% endif %}
+      <span class="onboarding-dot" data-step="{{ 5 if is_admin else 3 }}"></span>
     </div>
 
     <div class="onboarding-slides">
@@ -19,7 +36,11 @@
           </svg>
         </div>
         <h2 id="onboarding-title">Welcome to Ledger</h2>
+        {% if is_admin %}
+        <p>Your stokvel passbook on the web. As an admin, you'll set up members, keep contributions accurate, and watch the forecasts for the whole group.</p>
+        {% else %}
         <p>Your stokvel passbook on the web — balances, forecasts, and contributions in one place.</p>
+        {% endif %}
       </section>
 
       <section class="onboarding-slide" data-step="1">
@@ -45,7 +66,34 @@
         <p>Slide the top tabs to Overview, Member Forecast, and more — Holt-Winters fits on your data. Find Accuracy Health under Settings.</p>
       </section>
 
+      {% if is_admin %}
       <section class="onboarding-slide" data-step="3">
+        <div class="onboarding-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="56" height="56">
+            <circle cx="24" cy="24" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
+            <path d="M10 50c1-9 8-14 14-14s13 5 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M46 22h10M51 17v10" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h2>Adding a member</h2>
+        <p>In Settings, <strong>pre-register a member</strong> by name and role, or share your group's invite code so they can join themselves.</p>
+      </section>
+
+      <section class="onboarding-slide" data-step="4">
+        <div class="onboarding-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="56" height="56">
+            <rect x="14" y="12" width="36" height="40" rx="4" fill="none" stroke="currentColor" stroke-width="2"/>
+            <path d="M22 24h20M22 32h20M22 40h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="46" cy="44" r="9" fill="var(--paper-card)" stroke="currentColor" stroke-width="2"/>
+            <path d="M42.5 44l2.5 2.5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h2>Your admin responsibilities</h2>
+        <p>Admins invite and remove members, keep transaction data accurate, manage the invite code, and can review Accuracy Health for everyone in the group. Other members can only see their own numbers.</p>
+      </section>
+      {% endif %}
+
+      <section class="onboarding-slide" data-step="{{ 5 if is_admin else 3 }}">
         <div class="onboarding-icon" aria-hidden="true">
           <svg viewBox="0 0 64 64" width="56" height="56">
             <rect x="12" y="18" width="40" height="28" rx="4" fill="none" stroke="currentColor" stroke-width="2"/>

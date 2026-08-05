@@ -6,6 +6,7 @@ CSV files. Transactions and historical forecast rows are scoped by
 `group_id` so each stokvel group's data is fully isolated.
 """
 
+import json
 import secrets
 import string
 from datetime import datetime, timezone
@@ -95,9 +96,26 @@ class GroupMembership(db.Model):
     group_id = db.Column(db.Integer, db.ForeignKey("groups.id"), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="member")  # 'admin' | 'member'
     joined_at = db.Column(db.DateTime, default=_utcnow)
+    # Per-group extended details (this member's occupation/next-of-kin can
+    # differ from group to group, unlike the account-wide UserProfile fields).
+    occupation = db.Column(db.String(120), nullable=True)
+    next_of_kin_name = db.Column(db.String(120), nullable=True)
+    next_of_kin_phone = db.Column(db.String(32), nullable=True)
+    custom_fields_json = db.Column(db.Text, nullable=True)  # {field_key: value}, keys from GroupCustomField
 
     user = db.relationship("User", back_populates="memberships")
     group = db.relationship("Group", back_populates="memberships")
+
+    def custom_fields(self) -> dict:
+        if not self.custom_fields_json:
+            return {}
+        try:
+            return json.loads(self.custom_fields_json)
+        except (TypeError, ValueError):
+            return {}
+
+    def set_custom_fields(self, values: dict) -> None:
+        self.custom_fields_json = json.dumps(values or {})
 
 
 class Transaction(db.Model):
@@ -115,8 +133,16 @@ class Transaction(db.Model):
     contribution_frequency = db.Column(db.String(40), nullable=True, default="Unknown")
     region = db.Column(db.String(120), nullable=True)
     category = db.Column(db.String(120), nullable=True)
+    # 'upload' (CSV / sample data, the original default) | 'payment' (PayFast) |
+    # 'manual' (member-submitted entry confirmed by an admin, or an admin backfill).
+    # Only 'manual' rows are ever excluded from a forecast fit -- and only until
+    # the group's next explicit Retrain -- see GroupSettings.last_retrained_at.
+    source = db.Column(db.String(20), nullable=False, default="upload")
+    entered_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=_utcnow)
 
     group = db.relationship("Group", back_populates="transactions")
+
 
 
 class HistoricalForecast(db.Model):
@@ -153,6 +179,12 @@ class UserProfile(db.Model):
     notify_email = db.Column(db.Boolean, nullable=False, default=True)
     notify_in_app = db.Column(db.Boolean, nullable=False, default=True)
     language = db.Column(db.String(16), nullable=False, default="en")
+    # Account-wide (not per-group) extended details, e.g. from a pre-registration.
+    id_number = db.Column(db.String(20), nullable=True)
+    bank_account_holder = db.Column(db.String(120), nullable=True)
+    bank_name = db.Column(db.String(80), nullable=True)
+    bank_account_number = db.Column(db.String(34), nullable=True)
+    bank_branch_code = db.Column(db.String(10), nullable=True)
 
     user = db.relationship("User", backref=db.backref("profile", uselist=False))
 
@@ -176,6 +208,11 @@ class GroupSettings(db.Model):
     payout_rules = db.Column(db.Text, nullable=True)
     withdrawal_approval_threshold = db.Column(db.Float, nullable=False, default=0.0)  # amount above which >1 approval is required
     required_approvals = db.Column(db.Integer, nullable=False, default=1)
+    # Forecasts are frozen as of this timestamp: any 'manual' transaction
+    # created after it is excluded from the series a forecast is fit on,
+    # until an admin explicitly hits "Retrain" (which bumps this to now()
+    # and clears the forecast/accuracy caches).
+    last_retrained_at = db.Column(db.DateTime, nullable=True)
 
     group = db.relationship("Group", backref=db.backref("settings", uselist=False))
 
@@ -183,7 +220,7 @@ class GroupSettings(db.Model):
     def get_or_create(group_id: int) -> "GroupSettings":
         settings = GroupSettings.query.filter_by(group_id=group_id).first()
         if settings is None:
-            settings = GroupSettings(group_id=group_id)
+            settings = GroupSettings(group_id=group_id, last_retrained_at=_utcnow())
             db.session.add(settings)
             db.session.commit()
         return settings
@@ -206,6 +243,110 @@ class AuditLog(db.Model):
         entry = AuditLog(actor_id=actor_id, group_id=group_id, action=action, detail=detail)
         db.session.add(entry)
         return entry
+
+
+class GroupCustomField(db.Model):
+    """Admin-defined extra membership fields for one group (e.g. "ID
+    number", "Employer") -- labels only; values live per-member on
+    GroupMembership.custom_fields_json, keyed by `key`."""
+
+    __tablename__ = "group_custom_fields"
+    __table_args__ = (db.UniqueConstraint("group_id", "key", name="uq_group_custom_field_key"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("groups.id"), nullable=False, index=True)
+    key = db.Column(db.String(60), nullable=False)
+    label = db.Column(db.String(120), nullable=False)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, default=_utcnow)
+
+    group = db.relationship("Group")
+
+    @staticmethod
+    def slugify(label: str) -> str:
+        slug = "".join(c.lower() if c.isalnum() else "_" for c in label.strip()).strip("_")
+        while "__" in slug:
+            slug = slug.replace("__", "_")
+        return slug or "field"
+
+
+class PendingMember(db.Model):
+    """A slot an admin has pre-registered for someone who hasn't signed
+    up yet: a shareable invite-link token that, once used, creates the
+    account + group membership pre-filled with whatever the admin
+    already captured (name, banking/ID/phone, per-group details)."""
+
+    __tablename__ = "pending_members"
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("groups.id"), nullable=False, index=True)
+    invited_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(255), nullable=True)
+    role = db.Column(db.String(20), nullable=False, default="member")
+    # Pre-filled UserProfile fields (account-wide), e.g. {"phone": "...", "id_number": "...",
+    # "bank_account_holder": "...", "bank_name": "...", "bank_account_number": "...", "bank_branch_code": "..."}
+    profile_json = db.Column(db.Text, nullable=True)
+    # Pre-filled GroupMembership fields for this group, e.g. {"occupation": "...",
+    # "next_of_kin_name": "...", "next_of_kin_phone": "...", "custom_fields": {...}}
+    membership_json = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending | claimed | revoked
+    created_at = db.Column(db.DateTime, default=_utcnow)
+    claimed_at = db.Column(db.DateTime, nullable=True)
+    claimed_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    group = db.relationship("Group")
+    inviter = db.relationship("User", foreign_keys=[invited_by])
+    claimed_user = db.relationship("User", foreign_keys=[claimed_user_id])
+
+    @staticmethod
+    def generate_token() -> str:
+        return secrets.token_urlsafe(24)
+
+    def profile_data(self) -> dict:
+        try:
+            return json.loads(self.profile_json) if self.profile_json else {}
+        except (TypeError, ValueError):
+            return {}
+
+    def membership_data(self) -> dict:
+        try:
+            return json.loads(self.membership_json) if self.membership_json else {}
+        except (TypeError, ValueError):
+            return {}
+
+
+class PendingTransaction(db.Model):
+    """Manual ledger entry queue: a member submits a contribution/
+    withdrawal they made outside the app (cash, EFT), an admin
+    confirms (optionally editing it), edits, or rejects it. Admin
+    backfills go through the same table, pre-confirmed by the admin
+    who entered them -- so every manual entry has one consistent
+    audit trail regardless of who typed it in first."""
+
+    __tablename__ = "pending_transactions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("groups.id"), nullable=False, index=True)
+    member_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    submitted_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    entry_type = db.Column(db.String(20), nullable=False)  # 'contribution' | 'withdrawal'
+    amount = db.Column(db.Float, nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    note = db.Column(db.String(255), nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending | confirmed | rejected
+    created_at = db.Column(db.DateTime, default=_utcnow)
+    decided_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    decided_at = db.Column(db.DateTime, nullable=True)
+    decision_note = db.Column(db.String(255), nullable=True)
+    resulting_transaction_id = db.Column(db.Integer, db.ForeignKey("transactions.id"), nullable=True)
+
+    group = db.relationship("Group")
+    member_user = db.relationship("User", foreign_keys=[member_user_id])
+    submitter = db.relationship("User", foreign_keys=[submitted_by])
+    decider = db.relationship("User", foreign_keys=[decided_by])
+    resulting_transaction = db.relationship("Transaction")
 
 
 # --------------------------------------------------------------------------
@@ -340,6 +481,43 @@ class AccuracyCache(db.Model):
     mae = db.Column(db.Float, nullable=True)
     mape = db.Column(db.Float, nullable=True)
     updated_at = db.Column(db.DateTime, default=_utcnow, onupdate=_utcnow)
+
+
+class OnboardingProgress(db.Model):
+    """Server-side, per-group tracker for the admin onboarding checklist
+    that lives on the Overview page (see src/onboarding.py). Deliberately
+    keyed by *group*, not by user -- so every admin of a group sees the
+    same checklist state, and it's consistent across devices, unlike the
+    localStorage-based modal tour dismissal flag.
+
+    Each step can be dismissed independently ("dismissible per step, not
+    all-or-nothing"); a step also auto-completes itself once the admin
+    has actually done the underlying thing (invited someone, uploaded
+    real data), so dismissal is only needed for steps with no natural
+    completion signal (e.g. reviewing the invite code)."""
+
+    __tablename__ = "onboarding_progress"
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("groups.id"), unique=True, nullable=False)
+    invite_member_dismissed = db.Column(db.Boolean, nullable=False, default=False)
+    upload_data_dismissed = db.Column(db.Boolean, nullable=False, default=False)
+    invite_code_dismissed = db.Column(db.Boolean, nullable=False, default=False)
+    # Hides the whole widget regardless of individual step state.
+    widget_dismissed = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=_utcnow)
+    updated_at = db.Column(db.DateTime, default=_utcnow, onupdate=_utcnow)
+
+    group = db.relationship("Group")
+
+    @staticmethod
+    def get_or_create(group_id: int) -> "OnboardingProgress":
+        progress = OnboardingProgress.query.filter_by(group_id=group_id).first()
+        if progress is None:
+            progress = OnboardingProgress(group_id=group_id)
+            db.session.add(progress)
+            db.session.commit()
+        return progress
 
 
 class Notification(db.Model):

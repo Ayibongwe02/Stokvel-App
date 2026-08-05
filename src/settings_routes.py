@@ -10,17 +10,23 @@ from flask import Blueprint, abort, flash, redirect, render_template, session, u
 from flask_login import current_user, login_required
 
 from src.accuracy_view import build_accuracy_context
+from src import manual_ledger
 from src.forms import (
     ChangePasswordForm,
+    CustomFieldForm,
+    DeleteCustomFieldForm,
     GroupSettingsForm,
     InviteRegenerateForm,
     LeaveGroupForm,
     NotificationPrefsForm,
+    PreRegisterMemberForm,
     ProfileForm,
     RemoveMemberForm,
+    RetrainForm,
+    RevokePendingMemberForm,
 )
 from src.group_access import get_active_membership
-from src.models import AuditLog, GroupMembership, GroupSettings, UserProfile, db
+from src.models import AuditLog, GroupCustomField, GroupMembership, GroupSettings, PendingMember, UserProfile, db
 
 bp = Blueprint("settings", __name__, url_prefix="/settings")
 
@@ -45,6 +51,8 @@ def index():
     group_members = []
     group_settings = None
     group_settings_form = None
+    pending_members = []
+    custom_fields = []
     accuracy_ctx = {
         "acc_has_members": False,
         "acc_best_model": None,
@@ -67,6 +75,17 @@ def index():
             withdrawal_approval_threshold=group_settings.withdrawal_approval_threshold or "",
             required_approvals=str(group_settings.required_approvals),
         )
+        if membership.role == "admin":
+            pending_members = (
+                PendingMember.query.filter_by(group_id=membership.group_id, status="pending")
+                .order_by(PendingMember.created_at.desc())
+                .all()
+            )
+            custom_fields = (
+                GroupCustomField.query.filter_by(group_id=membership.group_id)
+                .order_by(GroupCustomField.sort_order.asc())
+                .all()
+            )
         try:
             accuracy_ctx = build_accuracy_context(membership.group_id)
         except Exception:
@@ -88,8 +107,29 @@ def index():
         notif_form=notif_form,
         group_settings=group_settings,
         group_settings_form=group_settings_form,
+        pending_members=pending_members,
+        custom_fields=custom_fields,
+        pre_register_form=PreRegisterMemberForm(),
+        revoke_pending_form=RevokePendingMemberForm(),
+        custom_field_form=CustomFieldForm(),
+        delete_custom_field_form=DeleteCustomFieldForm(),
+        retrain_form=RetrainForm(),
         **accuracy_ctx,
     )
+
+
+@bp.route("/retrain", methods=["POST"])
+@login_required
+def retrain():
+    membership = get_active_membership()
+    if membership is None or membership.role != "admin":
+        abort(403)
+
+    form = RetrainForm()
+    if form.validate_on_submit():
+        manual_ledger.retrain_group(membership.group_id, current_user.id)
+        flash("Forecasts retrained — manual edits since the last retrain are now reflected.", "success")
+    return redirect(url_for("settings.index"))
 
 
 @bp.route("/notifications", methods=["POST"])

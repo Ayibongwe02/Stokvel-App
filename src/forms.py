@@ -151,3 +151,79 @@ class WithdrawalDecisionForm(FlaskForm):
 class ChatForm(FlaskForm):
     message = StringField("Message", validators=[DataRequired(), Length(max=2000)])
     submit = SubmitField("Send")
+
+
+# --------------------------------------------------------------------------
+# Phase 5: pre-registered members + custom fields
+# --------------------------------------------------------------------------
+class PreRegisterMemberForm(FlaskForm):
+    name = StringField("Full name", validators=[DataRequired(), Length(max=120)])
+    email = StringField("Email (optional)", validators=[Optional(), Email(), Length(max=255)])
+    role = SelectField("Role", choices=[("member", "Member"), ("admin", "Admin")], default="member")
+    phone = StringField("Phone", validators=[Optional(), Length(max=32)])
+    id_number = StringField("ID number", validators=[Optional(), Length(max=20)])
+    bank_account_holder = StringField("Bank account holder", validators=[Optional(), Length(max=120)])
+    bank_name = StringField("Bank name", validators=[Optional(), Length(max=80)])
+    bank_account_number = StringField("Bank account number", validators=[Optional(), Length(max=34)])
+    bank_branch_code = StringField("Branch code", validators=[Optional(), Length(max=10)])
+    occupation = StringField("Occupation", validators=[Optional(), Length(max=120)])
+    next_of_kin_name = StringField("Next of kin name", validators=[Optional(), Length(max=120)])
+    next_of_kin_phone = StringField("Next of kin phone", validators=[Optional(), Length(max=32)])
+    submit = SubmitField("Create invite link")
+
+
+class RevokePendingMemberForm(FlaskForm):
+    pending_id = StringField(validators=[DataRequired()])
+    submit = SubmitField("Revoke")
+
+
+class ClaimInviteForm(FlaskForm):
+    email = StringField("Email", validators=[DataRequired(), Email(), Length(max=255)])
+    password = PasswordField("Password", validators=[DataRequired(), Length(min=8, max=128)])
+    confirm_password = PasswordField(
+        "Confirm password", validators=[DataRequired(), EqualTo("password", message="Passwords must match.")]
+    )
+    submit = SubmitField("Create account")
+
+
+class CustomFieldForm(FlaskForm):
+    label = StringField("Field label", validators=[DataRequired(), Length(max=120)])
+    submit = SubmitField("Add field")
+
+
+class DeleteCustomFieldForm(FlaskForm):
+    field_id = StringField(validators=[DataRequired()])
+    submit = SubmitField("Remove")
+
+
+# --------------------------------------------------------------------------
+# Phase 5: manual transactions + retrain
+# --------------------------------------------------------------------------
+class RetrainForm(FlaskForm):
+    submit = SubmitField("Retrain forecasts now")
+
+
+class ManualTransactionSubmitForm(FlaskForm):
+    entry_type = SelectField("Type", choices=[("contribution", "Contribution"), ("withdrawal", "Withdrawal")])
+    amount = StringField("Amount (ZAR)", validators=[DataRequired(), Length(max=20)])
+    date = StringField("Date", validators=[DataRequired(), Length(max=10)])
+    note = StringField("Note", validators=[Optional(), Length(max=255)])
+    submit = SubmitField("Submit for confirmation")
+
+
+class ManualTransactionDecisionForm(FlaskForm):
+    pending_id = StringField(validators=[DataRequired()])
+    decision = StringField(validators=[DataRequired()])  # 'confirm' | 'reject'
+    amount = StringField(validators=[Optional(), Length(max=20)])
+    date = StringField(validators=[Optional(), Length(max=10)])
+    note = StringField(validators=[Optional(), Length(max=255)])
+    submit = SubmitField("Submit")
+
+
+class ManualTransactionBackfillForm(FlaskForm):
+    member_user_id = SelectField("Member", coerce=int)
+    entry_type = SelectField("Type", choices=[("contribution", "Contribution"), ("withdrawal", "Withdrawal")])
+    amount = StringField("Amount (ZAR)", validators=[DataRequired(), Length(max=20)])
+    date = StringField("Date", validators=[DataRequired(), Length(max=10)])
+    note = StringField("Note", validators=[Optional(), Length(max=255)])
+    submit = SubmitField("Add entry")

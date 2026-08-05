@@ -53,12 +53,16 @@ def load_raw(group_id: int):
                     "contribution_frequency": r.contribution_frequency,
                     "region": r.region,
                     "category": r.category,
+                    "source": r.source or "upload",
+                    "created_at": r.created_at,
                 }
                 for r in tx_rows
             ]
         )
     else:
-        tx_raw = pd.DataFrame(columns=sorted(REQUIRED_TX_COLS | {"contribution_frequency", "region", "category"}))
+        tx_raw = pd.DataFrame(
+            columns=sorted(REQUIRED_TX_COLS | {"contribution_frequency", "region", "category", "source", "created_at"})
+        )
 
     hist_rows = HistoricalForecast.query.filter_by(group_id=group_id).all()
     if hist_rows:

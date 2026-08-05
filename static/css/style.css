@@ -857,6 +857,72 @@ input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focu
 .field-error { color: var(--brick); font-size: 0.76rem; margin-top: 5px; }
 .field-hint { color: var(--muted); font-size: 0.76rem; margin-top: 5px; }
 
+/* Grouped form sections (e.g. pre-registration) */
+.form-section-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--marigold-ink);
+  margin: 22px 0 12px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--rule);
+}
+.form-section-label:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+.form-section-label.is-hidden { display: none; }
+.form-actions { margin-top: 14px; }
+
+/* Live preview of an in-progress custom field */
+.control-group.is-preview label {
+  color: var(--marigold-ink);
+  font-style: italic;
+}
+.control-group.is-preview input {
+  border-style: dashed;
+  background: var(--marigold-soft);
+  color: var(--muted);
+  font-style: italic;
+  cursor: not-allowed;
+}
+
+/* Custom field chips */
+.field-chip-list { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.field-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--paper-card-2);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 6px 6px 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+  transform: rotate(-0.7deg);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field-chip:nth-child(even) { transform: rotate(0.6deg); }
+.field-chip:hover { border-color: var(--marigold-ink); transform: rotate(0deg); box-shadow: var(--shadow); }
+.field-chip form { margin: 0; }
+.field-chip button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.field-chip button:hover { background: var(--brick-soft); color: var(--brick); }
+.field-chip-empty { color: var(--muted); font-size: 0.84rem; font-style: italic; margin: 0 0 16px; }
+.add-field-form { margin-top: 4px; padding-top: 16px; border-top: 1px dashed var(--rule); }
+
 /* Auth */
 .auth-shell {
   min-height: 100vh;
@@ -1117,6 +1183,196 @@ body.onboarding-open { overflow: hidden; }
   .onboarding-icon,
   .onboarding-icon .ob-ring,
   .onboarding-icon .ob-line {
+    animation: none !important;
+  }
+}
+
+/* Onboarding checklist (Part 2) -- server-side, per-group admin widget */
+.onboarding-checklist-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.onboarding-checklist-head form { margin: 0; }
+.onboarding-checklist-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.onboarding-checklist-close:hover { color: var(--ink); }
+
+.onboarding-checklist-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.onboarding-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 4px;
+  border-top: 1px dashed var(--rule);
+  animation: stampIn 0.4s ease forwards;
+}
+.onboarding-checklist-item:first-child { border-top: none; }
+
+.onboarding-checklist-check {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1.5px solid var(--rule);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--paper-card);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.onboarding-checklist-item.done .onboarding-checklist-check {
+  background: var(--sage);
+  border-color: var(--sage);
+}
+
+.onboarding-checklist-body { flex: 1; min-width: 0; }
+.onboarding-checklist-title {
+  font-family: 'Lora', serif;
+  font-weight: 600;
+  font-size: 0.96rem;
+  color: var(--ink);
+}
+.onboarding-checklist-item.done .onboarding-checklist-title {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--sage);
+}
+.onboarding-checklist-desc {
+  color: var(--ink-soft);
+  font-size: 0.83rem;
+  line-height: 1.45;
+  margin-top: 2px;
+}
+.onboarding-checklist-item.done .onboarding-checklist-desc { display: none; }
+
+.onboarding-checklist-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.onboarding-checklist-actions .btn { padding: 7px 14px; font-size: 0.8rem; min-height: 0; }
+.onboarding-checklist-dismiss {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 6px 2px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.onboarding-checklist-dismiss:hover { color: var(--ink); }
+
+@media (max-width: 700px) {
+  .onboarding-checklist-item { flex-wrap: wrap; }
+  .onboarding-checklist-actions { flex-basis: 100%; margin-left: 32px; }
+}
+
+/* Empty-ledger state actions */
+.empty-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+
+/* Settings coach-mark -- one-time, points at the pre-registration panel */
+.coachmark {
+  position: absolute;
+  top: -14px;
+  right: 20px;
+  transform: translateY(-100%);
+  z-index: 20;
+  max-width: 280px;
+}
+.coachmark[hidden] { display: none; }
+
+.coachmark-bubble {
+  position: relative;
+  background: var(--cover);
+  color: var(--cover-text);
+  border-radius: 12px;
+  padding: 14px 18px 16px 16px;
+  box-shadow: var(--shadow-lift);
+  animation: stampIn 0.4s ease forwards;
+}
+.coachmark-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -7px;
+  right: 28px;
+  width: 14px;
+  height: 14px;
+  background: var(--cover);
+  transform: rotate(45deg);
+}
+.coachmark-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--cover-muted);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.coachmark-close:hover { color: var(--cover-text); }
+.coachmark-title {
+  font-family: 'Lora', serif;
+  font-weight: 600;
+  font-size: 0.96rem;
+  margin: 0 18px 6px 0;
+  color: var(--cover-text);
+}
+.coachmark-bubble p {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--cover-muted);
+}
+.coachmark-got-it {
+  background: var(--marigold);
+  color: var(--cover);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-family: 'Karla', sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.coachmark-got-it:hover { transform: translateY(-1px); }
+
+.coachmark-highlight {
+  outline: 2px solid var(--marigold);
+  outline-offset: 3px;
+  animation: ringPing 1.6s ease-out 2;
+}
+
+@media (max-width: 600px) {
+  .coachmark { position: static; transform: none; max-width: none; margin-bottom: 14px; }
+  .coachmark-bubble::after { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-checklist-item,
+  .coachmark-bubble,
+  .coachmark-highlight {
     animation: none !important;
   }
 }

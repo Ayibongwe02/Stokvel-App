@@ -36,10 +36,15 @@ from src.extensions import csrf, login_manager
 from src.forms import ResetDataForm, UploadForm
 from src.group_access import admin_required, get_active_membership, group_required
 from src.group_routes import bp as groups_bp
-from src.models import Notification, User, db
+from src.members_routes import bp as members_bp
+from src.migrations import run_light_migrations
+from src.models import GroupSettings, Notification, User, db
+from src.onboarding import get_checklist
+from src.onboarding_routes import bp as onboarding_progress_bp
 from src.payments_routes import bp as payments_bp
 from src.payments_routes import notify as payments_notify
 from src.settings_routes import bp as settings_bp
+from src.transactions_routes import bp as transactions_bp
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -64,10 +69,14 @@ def create_app():
     app.register_blueprint(settings_bp)
     app.register_blueprint(payments_bp)
     app.register_blueprint(assistant_bp)
+    app.register_blueprint(members_bp)
+    app.register_blueprint(transactions_bp)
+    app.register_blueprint(onboarding_progress_bp)
     csrf.exempt(payments_notify)  # PayFast's ITN webhook is server-to-server, authenticated by signature instead
 
     with app.app_context():
         db.create_all()
+        run_light_migrations(db)
 
     return app
 
@@ -94,9 +103,14 @@ def overview():
     g.active_membership = membership
     g.active_group = membership.group
 
+    # Server-side, per-group admin checklist (see src/onboarding.py) --
+    # shown on Overview whether or not there's data yet, so a brand new
+    # admin sees it immediately on the empty-ledger state too.
+    checklist = get_checklist(g.active_group.id) if membership.role == "admin" else None
+
     tx_df, hist_df, hist_available, meta, members = get_dataset(g.active_group.id)
     if not members:
-        return render_template("empty.html")
+        return render_template("empty.html", checklist=checklist)
 
     latest_balances = tx_df.sort_values("date").groupby("member_id").last()["balance"]
     total_balance = float(latest_balances.sum())
@@ -130,6 +144,7 @@ def overview():
         net_flow=net_flow,
         rows=rows,
         charts_json=charts_json,
+        checklist=checklist,
     )
 
 
@@ -145,7 +160,8 @@ def forecast():
         member = members[0]
     horizon = max(1, min(12, request.args.get("horizon", 6, type=int)))
 
-    series = forecasting.get_member_series(member, tx_df, hist_df, hist_available)
+    forecast_cutoff = GroupSettings.get_or_create(g.active_group.id).last_retrained_at
+    series = forecasting.get_member_series(member, tx_df, hist_df, hist_available, forecast_cutoff)
     meta_m = meta[member]
     chart_json = None
     warning = None
@@ -293,6 +309,7 @@ def inject_nav():
     user_groups = []
     active_group = None
     unread_notifications = 0
+    onboarding_membership = None
     if current_user.is_authenticated:
         user_groups = current_user.groups()
         active_group = getattr(g, "active_group", None)
@@ -300,11 +317,18 @@ def inject_nav():
             unread_notifications = Notification.query.filter_by(
                 group_id=active_group.id, is_read=False
             ).count()
+        # Not every route runs group_required (e.g. the group picker), so
+        # resolve membership independently here — the onboarding tour is
+        # included on every page and needs to know the viewer's role.
+        onboarding_membership = getattr(g, "active_membership", None)
+        if onboarding_membership is None:
+            onboarding_membership = get_active_membership()
     return {
         "active_endpoint": request.endpoint,
         "user_groups": user_groups,
         "active_group": active_group,
         "unread_notifications": unread_notifications,
+        "onboarding_membership": onboarding_membership,
     }
 
 
