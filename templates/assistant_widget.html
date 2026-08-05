@@ -1,0 +1,67 @@
+<div id="assistant-widget">
+  <button id="assistant-toggle" type="button" aria-label="Open chatbot">
+    <svg viewBox="0 0 24 24"><path d="M3.5 5.5h17v11h-9.5L6.5 20v-3.5h-3z"/><path d="M8 10h8M8 13h5"/></svg>
+  </button>
+  <div id="assistant-panel" class="hidden">
+    <div class="assistant-head">
+      <span>Stokvel Chatbot</span>
+      <button id="assistant-close" type="button" aria-label="Close">×</button>
+    </div>
+    <div id="assistant-messages"></div>
+    <form id="assistant-form">
+      <input id="assistant-input" type="text" placeholder="Ask about your group's forecast, best practice..." autocomplete="off">
+      <button type="submit" class="btn">Send</button>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  const toggle = document.getElementById("assistant-toggle");
+  const panel = document.getElementById("assistant-panel");
+  const closeBtn = document.getElementById("assistant-close");
+  const form = document.getElementById("assistant-form");
+  const input = document.getElementById("assistant-input");
+  const messages = document.getElementById("assistant-messages");
+
+  function addMessage(role, text) {
+    const div = document.createElement("div");
+    div.className = "assistant-msg " + role;
+    div.textContent = text;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  toggle.addEventListener("click", () => panel.classList.toggle("hidden"));
+  closeBtn.addEventListener("click", () => panel.classList.add("hidden"));
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    addMessage("user", text);
+    input.value = "";
+    addMessage("assistant", "…thinking");
+
+    try {
+      const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+      const res = await fetch("{{ url_for('assistant.chat') }}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+        body: JSON.stringify({ message: text }),
+      });
+      const data = await res.json();
+      messages.lastChild.remove();
+      if (data.error) {
+        addMessage("assistant", "Error: " + data.error);
+      } else {
+        addMessage("assistant", data.reply);
+        (data.actions_taken || []).forEach((a) => addMessage("action", a));
+      }
+    } catch (err) {
+      messages.lastChild.remove();
+      addMessage("assistant", "Couldn't reach the chatbot right now.");
+    }
+  });
+})();
+</script>

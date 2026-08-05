@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Stokvel Forecasting{% endblock %} · Ledger</title>
+  {% if current_user.is_authenticated %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.29.1/plotly.min.js"></script>
+</head>
+<body>
+  <div id="page-loader" class="page-loader" aria-hidden="true" role="status" aria-live="polite">
+    <div class="page-loader-backdrop"></div>
+    <div class="page-loader-inner">
+      <span class="page-loader-emblem" aria-hidden="true">
+        <svg viewBox="0 0 40 40" width="64" height="64">
+          <circle class="pl-ring" cx="20" cy="20" r="16"/>
+          <g class="pl-dots">
+            <circle cx="20" cy="4" r="1.8"/>
+            <circle cx="33" cy="12" r="1.8"/>
+            <circle cx="33" cy="28" r="1.8"/>
+            <circle cx="20" cy="36" r="1.8"/>
+            <circle cx="7" cy="28" r="1.8"/>
+            <circle cx="7" cy="12" r="1.8"/>
+          </g>
+          <g class="pl-orbit">
+            <circle cx="20" cy="4" r="3" class="pl-marker"/>
+          </g>
+          <line class="pl-needle" x1="20" y1="20" x2="20" y2="9"/>
+        </svg>
+      </span>
+      <span class="page-loader-text" id="page-loader-text">Balancing the ledger…</span>
+      <span class="page-loader-bar"><span class="page-loader-bar-fill"></span></span>
+    </div>
+  </div>
+
+  <div class="layout layout-topnav">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand brand-top" href="{{ url_for('overview') if current_user.is_authenticated else url_for('auth.login') }}">
+          {% include "_brand.html" %}
+        </a>
+
+        {% if current_user.is_authenticated %}
+        <div class="topbar-user">
+          <div class="who-block">
+            <span class="who">{{ current_user.name }}</span>
+            {% if active_group %}<span class="group-name">{{ active_group.name }}</span>{% endif %}
+          </div>
+          <details class="hamburger-menu">
+            <summary class="hamburger-btn" aria-label="Account menu">
+              <span class="hamburger-lines" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </span>
+            </summary>
+            <div class="hamburger-panel" role="menu">
+              <div class="hamburger-panel-head">
+                <span class="who">{{ current_user.name }}</span>
+                {% if active_group %}<span class="group-name">{{ active_group.name }}</span>{% endif %}
+              </div>
+              <a href="{{ url_for('groups.index') }}" class="hamburger-item {{ 'active' if active_endpoint == 'groups.index' }}" role="menuitem">Groups</a>
+              <a href="{{ url_for('settings.index') }}" class="hamburger-item {{ 'active' if active_endpoint == 'settings.index' }}" role="menuitem">Settings</a>
+              {% if user_groups|length > 1 %}
+              <div class="hamburger-divider"></div>
+              <div class="hamburger-label">Switch group</div>
+              {% for grp in user_groups %}
+              <form method="post" action="{{ url_for('groups.switch', group_id=grp.id) }}" class="hamburger-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="hamburger-item {{ 'active' if active_group and grp.id == active_group.id }}" role="menuitem">{{ grp.name }}</button>
+              </form>
+              {% endfor %}
+              {% endif %}
+              {% if is_sample_preview and exit_sample_form %}
+              <div class="hamburger-divider"></div>
+              <form method="post" action="{{ url_for('groups.exit_sample_preview') }}" class="hamburger-form">
+                {{ exit_sample_form.csrf_token }}
+                <button type="submit" class="hamburger-item danger" role="menuitem">Exit sample preview</button>
+              </form>
+              {% endif %}
+              <div class="hamburger-divider"></div>
+              <form method="post" action="{{ url_for('auth.logout') }}" class="hamburger-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="hamburger-item danger" role="menuitem">Log out</button>
+              </form>
+            </div>
+          </details>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if current_user.is_authenticated %}
+      <nav class="slide-nav" aria-label="Main">
+        <div class="slide-nav-track" id="slide-nav-track">
+          <div class="slide-nav-indicator" id="slide-nav-indicator" aria-hidden="true"></div>
+          <a href="{{ url_for('overview') }}" class="slide-nav-item {{ 'active' if active_endpoint == 'overview' }}" data-nav="overview">
+            <span class="nav-cube">
+              <svg class="nav-icon" viewBox="0 0 20 20" style="--dash:44"><rect x="3" y="10" width="3.4" height="7"/><rect x="8.3" y="6" width="3.4" height="11"/><rect x="13.6" y="3" width="3.4" height="14"/></svg>
+            </span>
+            <span class="nav-label">Overview</span>
+          </a>
+          <a href="{{ url_for('forecast') }}" class="slide-nav-item {{ 'active' if active_endpoint == 'forecast' }}" data-nav="forecast">
+            <span class="nav-cube">
+              <svg class="nav-icon" viewBox="0 0 20 20" style="--dash:46"><polyline points="2.5,15 7,8.5 11,12 17.5,4"/><polyline points="12.5,4 17.5,4 17.5,9"/></svg>
+            </span>
+            <span class="nav-label">Member Forecast</span>
+          </a>
+          <a href="{{ url_for('regional') }}" class="slide-nav-item {{ 'active' if active_endpoint == 'regional' }}" data-nav="regional">
+            <span class="nav-cube">
+              <svg class="nav-icon" viewBox="0 0 20 20" style="--dash:42"><path d="M10 17.5c3.5-3.9 5.5-7 5.5-9.7A5.5 5.5 0 0 0 10 2.3a5.5 5.5 0 0 0-5.5 5.5c0 2.7 2 5.8 5.5 9.7z"/><circle cx="10" cy="7.8" r="1.9"/></svg>
+            </span>
+            <span class="nav-label">Regional View</span>
+          </a>
+          <a href="{{ url_for('data_source') }}" class="slide-nav-item {{ 'active' if active_endpoint == 'data_source' }}" data-nav="data">
+            <span class="nav-cube">
+              <svg class="nav-icon" viewBox="0 0 20 20" style="--dash:44"><path d="M2.5 12.5 5 4h10l2.5 8.5"/><path d="M2.5 12.5v3a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-3h-4.3a2.2 2.2 0 0 1-4.4 0z"/></svg>
+            </span>
+            <span class="nav-label">Data Source</span>
+          </a>
+          <a href="{{ url_for('payments.index') }}" class="slide-nav-item {{ 'active' if active_endpoint and active_endpoint.startswith('payments.') }}" data-nav="payments">
+            <span class="nav-cube">
+              <svg class="nav-icon" viewBox="0 0 20 20" style="--dash:50"><ellipse cx="10" cy="5" rx="6.2" ry="2.4"/><path d="M3.8 5v4.2c0 1.3 2.8 2.4 6.2 2.4s6.2-1.1 6.2-2.4V5"/><path d="M3.8 9.2v4.4c0 1.3 2.8 2.4 6.2 2.4s6.2-1.1 6.2-2.4V9.2"/></svg>
+            </span>
+            <span class="nav-label">Payments{% if unread_notifications %} <span class="badge notify">{{ unread_notifications }}</span>{% endif %}</span>
+          </a>
+          <a href="{{ url_for('transactions.index') }}" class="slide-nav-item {{ 'active' if active_endpoint and active_endpoint.startswith('transactions.') }}" data-nav="transactions">
+            <span class="nav-cube">
+              <svg class="nav-icon" viewBox="0 0 20 20" style="--dash:40"><rect x="3" y="3.5" width="14" height="13" rx="1.2"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="11.5" x2="11.5" y2="11.5"/></svg>
+            </span>
+            <span class="nav-label">Transactions</span>
+          </a>
+        </div>
+      </nav>
+      {% endif %}
+    </header>
+
+    <main class="main">
+      {% if is_sample_preview and exit_sample_form %}
+      <div class="sample-preview-banner" role="status">
+        <div class="sample-preview-banner-text">
+          <span class="sample-preview-pill">Sample preview</span>
+          <span>You’re exploring demo data — nothing here is real money.</span>
+        </div>
+        <form method="post" action="{{ url_for('groups.exit_sample_preview') }}" class="sample-preview-banner-form">
+          {{ exit_sample_form.csrf_token }}
+          <button type="submit" class="btn secondary sample-preview-banner-btn">Exit preview</button>
+        </form>
+      </div>
+      {% endif %}
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="callout {{ 'error' if category == 'error' else 'success' }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {% if current_user.is_authenticated %}
+    {% include "onboarding.html" %}
+  {% endif %}
+
+  {% if current_user.is_authenticated and active_group %}
+    {% include "assistant_widget.html" %}
+  {% endif %}
+
+  {% if is_sample_preview and exit_sample_form %}
+  <div id="exit-sample-widget" class="exit-sample-widget">
+    <form method="post" action="{{ url_for('groups.exit_sample_preview') }}" class="exit-sample-form">
+      {{ exit_sample_form.csrf_token }}
+      <button type="submit" class="exit-sample-fab" title="Exit sample preview" aria-label="Exit sample preview">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span class="exit-sample-fab-label">Exit preview</span>
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+  <script>
+  (function () {
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function formatMoney(value) {
+      var sign = value < 0 ? '-' : '';
+      var abs = Math.round(Math.abs(value));
+      return 'R ' + sign + abs.toLocaleString('en-US');
+    }
+
+    document.querySelectorAll('.stat-value[data-count]').forEach(function (el) {
+      var target = parseFloat(el.getAttribute('data-count'));
+      if (isNaN(target)) return;
+      if (reduceMotion) { el.textContent = formatMoney(target); return; }
+
+      var start = null;
+      var duration = 800;
+      function step(ts) {
+        if (!start) start = ts;
+        var progress = Math.min((ts - start) / duration, 1);
+        var eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = formatMoney(target * eased);
+        if (progress < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    });
+
+    var loader = document.getElementById('page-loader');
+    if (loader) {
+      var loaderText = document.getElementById('page-loader-text');
+      var phrases = ['Balancing the ledger…', 'Tallying the numbers…', 'Turning the page…'];
+      var phraseTimer = null;
+
+      function showLoader() {
+        if (loader.classList.contains('is-active')) return;
+        loader.classList.add('is-active');
+        loader.setAttribute('aria-hidden', 'false');
+        if (!reduceMotion && loaderText) {
+          var i = 0;
+          phraseTimer = setInterval(function () {
+            i = (i + 1) % phrases.length;
+            loaderText.textContent = phrases[i];
+          }, 1400);
+        }
+      }
+
+      function hideLoader() {
+        loader.classList.remove('is-active');
+        loader.setAttribute('aria-hidden', 'true');
+        if (phraseTimer) { clearInterval(phraseTimer); phraseTimer = null; }
+        if (loaderText) loaderText.textContent = phrases[0];
+      }
+
+      // Real, same-tab, same-origin navigations only -- not anchors,
+      // not external/download links, not the in-panel assistant widget.
+      document.addEventListener('click', function (e) {
+        var link = e.target.closest('a[href]');
+        if (!link || e.defaultPrevented || e.button !== 0) return;
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        if (link.target && link.target !== '_self') return;
+        if (link.hasAttribute('download')) return;
+        if (link.closest('#assistant-widget')) return;
+        var href = link.getAttribute('href') || '';
+        if (!href || href.charAt(0) === '#' || href.indexOf('javascript:') === 0
+            || href.indexOf('mailto:') === 0 || href.indexOf('tel:') === 0) return;
+        if (link.origin !== window.location.origin) return;
+        showLoader();
+      });
+
+      // Native form submissions -- runs after any inline onsubmit/confirm()
+      // has already had a chance to cancel the event, so a declined confirm
+      // (e.g. the EFT-sent check on the withdrawal form) never shows it.
+      // The assistant chat form is handled entirely in-panel, so it's excluded.
+      document.addEventListener('submit', function (e) {
+        if (e.defaultPrevented) return;
+        if (e.target.closest('#assistant-form')) return;
+        showLoader();
+      });
+
+      // Coming back via browser back/forward (bfcache) restores the old
+      // DOM as-is, so make sure the overlay isn't left stuck on.
+      window.addEventListener('pageshow', hideLoader);
+    }
+
+    var track = document.getElementById('slide-nav-track');
+    var indicator = document.getElementById('slide-nav-indicator');
+    if (track && indicator) {
+      function placeIndicator() {
+        var active = track.querySelector('.slide-nav-item.active');
+        if (!active) {
+          indicator.style.opacity = '0';
+          return;
+        }
+        var trackRect = track.getBoundingClientRect();
+        var itemRect = active.getBoundingClientRect();
+        var left = itemRect.left - trackRect.left + track.scrollLeft;
+        indicator.style.width = itemRect.width + 'px';
+        indicator.style.transform = 'translateX(' + left + 'px)';
+        indicator.style.opacity = '1';
+        active.scrollIntoView({ inline: 'center', block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+      }
+      placeIndicator();
+      window.addEventListener('resize', placeIndicator);
+      track.addEventListener('scroll', function () {
+        var active = track.querySelector('.slide-nav-item.active');
+        if (!active) return;
+        var trackRect = track.getBoundingClientRect();
+        var itemRect = active.getBoundingClientRect();
+        var left = itemRect.left - trackRect.left + track.scrollLeft;
+        indicator.style.width = itemRect.width + 'px';
+        indicator.style.transform = 'translateX(' + left + 'px)';
+      });
+    }
+
+    var ob = document.getElementById('onboarding');
+    if (ob) {
+      // Seen-state is tracked per role variant (member/admin), so someone
+      // promoted from member to admin automatically gets the admin-only
+      // slides (invites, admin responsibilities) instead of staying
+      // permanently dismissed from their earlier member-level tour.
+      var variant = ob.getAttribute('data-variant') || 'member';
+      var OB_KEY = 'ledger_onboarding_v2_' + variant;
+
+      var step = 0;
+      var slides = ob.querySelectorAll('.onboarding-slide');
+      var dots = ob.querySelectorAll('.onboarding-dot');
+      var nextBtn = document.getElementById('onboarding-next');
+      var skipBtn = document.getElementById('onboarding-skip');
+      var total = slides.length;
+
+      function showStep(i) {
+        step = i;
+        slides.forEach(function (s, n) {
+          s.classList.toggle('active', n === i);
+        });
+        dots.forEach(function (d, n) {
+          d.classList.toggle('active', n === i);
+          d.classList.toggle('done', n < i);
+        });
+        nextBtn.textContent = i === total - 1 ? 'Get started' : 'Next';
+      }
+
+      function closeOnboarding() {
+        localStorage.setItem(OB_KEY, '1');
+        ob.classList.add('onboarding-out');
+        setTimeout(function () {
+          ob.hidden = true;
+          ob.setAttribute('aria-hidden', 'true');
+          document.body.classList.remove('onboarding-open');
+        }, reduceMotion ? 0 : 380);
+      }
+
+      function openOnboarding() {
+        ob.classList.remove('onboarding-out');
+        document.body.classList.add('onboarding-open');
+        ob.hidden = false;
+        ob.setAttribute('aria-hidden', 'false');
+        showStep(0);
+      }
+
+      nextBtn.addEventListener('click', function () {
+        if (step < total - 1) showStep(step + 1);
+        else closeOnboarding();
+      });
+      skipBtn.addEventListener('click', closeOnboarding);
+      ob.querySelector('.onboarding-backdrop').addEventListener('click', closeOnboarding);
+
+      // Auto-launch once per role variant.
+      if (!localStorage.getItem(OB_KEY)) {
+        openOnboarding();
+      }
+
+      // Let a "Replay onboarding tour" button (e.g. in Settings) reopen it
+      // on demand, regardless of dismissed state.
+      window.replayOnboardingTour = openOnboarding;
+      document.querySelectorAll('[data-replay-onboarding]').forEach(function (btn) {
+        btn.addEventListener('click', openOnboarding);
+      });
+    }
+
+  })();
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

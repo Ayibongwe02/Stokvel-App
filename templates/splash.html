@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ledger — Stokvel Forecasting</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    .splash-shell {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: var(--cover);
+      background-image:
+        linear-gradient(var(--cover), var(--cover)),
+        repeating-linear-gradient(0deg, rgba(239,227,200,0.02) 0px, rgba(239,227,200,0.02) 1px, transparent 1px, transparent 33px);
+    }
+    .splash-card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--paper-card);
+      border: 1px solid var(--rule);
+      border-radius: 12px;
+      padding: 44px 38px;
+      box-shadow: var(--shadow-lift);
+      text-align: center;
+      opacity: 0;
+      animation: stampIn 0.5s ease forwards;
+    }
+    .splash-card .brand { justify-content: center; margin-bottom: 22px; }
+    .splash-card .brand-emblem { color: var(--marigold-ink); }
+    .splash-card .brand-emblem .be-ring { stroke: var(--marigold-ink); }
+    .splash-card .brand-emblem .be-dots circle { fill: var(--marigold-ink); }
+    .splash-card .brand-emblem .be-marker { fill: var(--marigold-ink); }
+    .splash-card .brand-mark { color: var(--ink); font-size: 1.5rem; }
+    .splash-card h1 {
+      font-size: 1.6rem;
+      margin: 0 0 12px;
+      color: var(--ink);
+    }
+    .splash-card p.tagline {
+      color: var(--ink-soft);
+      font-size: 0.98rem;
+      line-height: 1.5;
+      margin: 0 0 30px;
+    }
+    .splash-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .splash-actions .btn { min-width: 140px; justify-content: center; }
+    .splash-foot {
+      margin-top: 26px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-shell">
+    <div class="splash-card">
+      <div class="brand">{% include "_brand.html" %}</div>
+      <h1>Keep your stokvel's books, without the spreadsheet headaches.</h1>
+      <p class="tagline">
+        Track contributions and withdrawals, see where every member stands,
+        and get a live Holt-Winters forecast of where each balance is headed —
+        all in one place for your group.
+      </p>
+      <div class="splash-actions">
+        <a href="{{ url_for('auth.login') }}" class="btn">Log in</a>
+        <a href="{{ url_for('auth.signup') }}" class="btn secondary">Sign up</a>
+      </div>
+      <div class="splash-foot">Free to use for your stokvel group.</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}{% if is_fresh %}Get started{% else %}Groups{% endif %}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <span class="eyebrow">{% if is_fresh %}Welcome{% else %}Workspaces{% endif %}</span>
+    <h1>{% if is_fresh %}How do you want to begin?{% else %}Your Stokvel Groups{% endif %}</h1>
+    <p>
+      {% if is_fresh %}
+        Pick a path below. You can always come back here from the menu — nothing is locked in.
+      {% else %}
+        Each group has its own members, transactions, and forecasts. Switch, create another, or open the sample preview anytime.
+      {% endif %}
+    </p>
+  </div>
+
+  {# ---------- Primary action cards ---------- #}
+  <div class="hub-grid">
+
+    <div class="hub-card hub-card-primary">
+      <div class="hub-card-icon" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14M5 12h14"/>
+        </svg>
+      </div>
+      <div class="hub-card-kicker">Start fresh</div>
+      <h2 class="hub-card-title">Create a group</h2>
+      <p class="hub-card-body">
+        Open a real stokvel workspace. You’ll be the first admin. The ledger starts empty so you can add members and your own data.
+      </p>
+      <form method="post" action="{{ url_for('groups.create') }}" class="hub-card-form">
+        {{ create_form.csrf_token }}
+        <div class="form-row">
+          <div class="control-group grow">
+            {{ create_form.name.label }}
+            {{ create_form.name(placeholder="e.g. Ubuntu Savings Circle") }}
+          </div>
+          <div class="control-group grow">
+            {{ create_form.region.label }}
+            {{ create_form.region(placeholder="e.g. Gauteng") }}
+          </div>
+        </div>
+        {{ create_form.submit(class="btn") }}
+      </form>
+    </div>
+
+    <div class="hub-card">
+      <div class="hub-card-icon hub-card-icon-teal" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="M21 21l-3.5-3.5"/>
+          <path d="M11 8v6M8 11h6"/>
+        </svg>
+      </div>
+      <div class="hub-card-kicker">Explore first</div>
+      <h2 class="hub-card-title">Preview with sample data</h2>
+      <p class="hub-card-body">
+        Open a demo group already filled with sample contributions, balances, and forecasts — no upload needed. Ideal for seeing how the app feels.
+      </p>
+      <form method="post" action="{{ url_for('groups.preview_sample') }}">
+        {{ preview_form.csrf_token }}
+        {{ preview_form.submit(class="btn secondary") }}
+      </form>
+    </div>
+
+    <div class="hub-card">
+      <div class="hub-card-icon hub-card-icon-brick" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M19 8v6M22 11h-6"/>
+        </svg>
+      </div>
+      <div class="hub-card-kicker">Grow the circle</div>
+      <h2 class="hub-card-title">Add a member</h2>
+      {% if active_membership and active_membership.role == 'admin' %}
+        <p class="hub-card-body">
+          Pre-register someone for <strong>{{ active_membership.group.name }}</strong>, or share the invite code from Settings.
+        </p>
+        <a class="btn secondary" href="{{ url_for('settings.index') }}#pre-register-panel">Add a member</a>
+      {% elif memberships %}
+        <p class="hub-card-body">
+          Only group admins can invite members. Ask your admin, or create your own group to invite people.
+        </p>
+        <a class="btn secondary" href="{{ url_for('settings.index') }}">Open Settings</a>
+      {% else %}
+        <p class="hub-card-body">
+          Create a group first (or open the sample preview), then you can pre-register members and share an invite code.
+        </p>
+        <button type="button" class="btn secondary" disabled title="Create or preview a group first">Add a member</button>
+      {% endif %}
+    </div>
+
+    <div class="hub-card">
+      <div class="hub-card-icon" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+          <polyline points="10 17 15 12 10 7"/>
+          <line x1="15" y1="12" x2="3" y2="12"/>
+        </svg>
+      </div>
+      <div class="hub-card-kicker">Already invited?</div>
+      <h2 class="hub-card-title">Join with an invite code</h2>
+      <p class="hub-card-body">
+        Enter the code from your stokvel admin to join their group as a member.
+      </p>
+      <form method="post" action="{{ url_for('groups.join') }}" class="hub-card-form">
+        {{ join_form.csrf_token }}
+        <div class="form-row">
+          <div class="control-group grow">
+            {{ join_form.invite_code.label }}
+            {{ join_form.invite_code(placeholder="e.g. AB12CD34") }}
+          </div>
+        </div>
+        {{ join_form.submit(class="btn secondary") }}
+      </form>
+    </div>
+
+  </div>
+
+  {% if memberships %}
+  <div class="panel hub-list-panel">
+    <div class="panel-title">Your groups</div>
+    <p class="panel-caption">Switch between workspaces you already belong to.</p>
+    <div class="table-scroll">
+      <table class="ledger">
+        <thead><tr><th>Group</th><th>Region</th><th>Role</th><th></th></tr></thead>
+        <tbody>
+          {% for m in memberships %}
+          <tr>
+            <td>{{ m.group.name }}</td>
+            <td>{{ m.group.region or '—' }}</td>
+            <td><span class="badge {{ 'teal' if m.role == 'member' }}">{{ m.role }}</span></td>
+            <td>
+              {% if active_group_id == m.group_id %}
+                <span class="field-hint">active</span>
+                <a class="btn secondary" style="margin-left:8px;" href="{{ url_for('overview') }}">Open ledger</a>
+              {% else %}
+                <form method="post" action="{{ url_for('groups.switch', group_id=m.group_id) }}" style="display:inline;">
+                  <button type="submit" class="btn secondary">Switch &amp; open</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+{% endblock %}

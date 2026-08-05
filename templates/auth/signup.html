@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign up · Ledger</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="auth-shell">
+    <div class="auth-card">
+      <div class="brand">{% include "_brand.html" %}</div>
+      <h1>Create an account</h1>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="callout {{ 'error' if category == 'error' else 'success' }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" action="{{ url_for('auth.signup') }}">
+        {{ form.csrf_token }}
+        <div class="form-row">
+          <div class="control-group grow">
+            {{ form.name.label }}
+            {{ form.name() }}
+            {% for err in form.name.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+          </div>
+          <div class="control-group grow">
+            {{ form.email.label }}
+            {{ form.email(type="email") }}
+            {% for err in form.email.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+          </div>
+          <div class="control-group grow">
+            {{ form.password.label }}
+            {{ form.password() }}
+            {% for err in form.password.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+          </div>
+          <div class="control-group grow">
+            {{ form.confirm_password.label }}
+            {{ form.confirm_password() }}
+            {% for err in form.confirm_password.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+          </div>
+          {{ form.submit(class="btn") }}
+        </div>
+      </form>
+
+      <div class="auth-foot">Already have an account? <a href="{{ url_for('auth.login') }}" style="color: var(--marigold-ink);">Log in</a></div>
+    </div>
+  </div>
+</body>
+</html>
