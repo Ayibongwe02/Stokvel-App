@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Transactions{% endblock %}
+{% block content %}
+  <div class="page-head" data-tour="tx-head">
+    <span class="eyebrow">Ledger</span>
+    <h1>Manual Transactions</h1>
+    <p>Log a contribution or withdrawal that happened outside PayFast (cash, EFT). Submissions need an admin to confirm before they hit the ledger.</p>
+  </div>
+
+  <div class="panel" data-tour="tx-submit">
+    <div class="panel-title">Submit an entry</div>
+    <p class="panel-caption">This is submitted for you ({{ current_user.name }}) and won't affect your balance until an admin confirms it.</p>
+    <form method="post" action="{{ url_for('transactions.submit') }}">
+      {{ submit_form.csrf_token }}
+      <div class="form-row">
+        <div class="control-group">
+          {{ submit_form.entry_type.label }}
+          {{ submit_form.entry_type() }}
+        </div>
+        <div class="control-group grow">
+          {{ submit_form.amount.label }}
+          {{ submit_form.amount(placeholder="e.g. 500.00") }}
+        </div>
+        <div class="control-group grow">
+          {{ submit_form.date.label }}
+          {{ submit_form.date(placeholder="YYYY-MM-DD") }}
+        </div>
+        <div class="control-group grow">
+          {{ submit_form.note.label }}
+          {{ submit_form.note(placeholder="optional") }}
+        </div>
+      </div>
+      {{ submit_form.submit(class="btn") }}
+    </form>
+  </div>
+
+  <div class="panel" data-tour="tx-submissions">
+    <div class="panel-title">Your submissions</div>
+    {% if not my_submissions %}
+      <p class="panel-caption">No submissions yet.</p>
+    {% endif %}
+    {% for s in my_submissions %}
+      <div class="member-row">
+        <div>
+          <div class="name">{{ s.entry_type|capitalize }} — R{{ "%.2f"|format(s.amount) }}{% if s.note %} ({{ s.note }}){% endif %}</div>
+          <div class="email">{{ s.date }} · status: {{ s.status }}{% if s.status == 'rejected' and s.decision_note %} — {{ s.decision_note }}{% endif %}</div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {% if is_admin %}
+  <div class="panel">
+    <div class="panel-title">Confirmation queue</div>
+    {% if not queue %}
+      <p class="panel-caption">Nothing pending.</p>
+    {% endif %}
+    {% for pt in queue %}
+      <div class="member-row">
+        <div>
+          <div class="name">{{ pt.entry_type|capitalize }} — R{{ "%.2f"|format(pt.amount) }} · {{ pt.member_user.name }}</div>
+          <div class="email">submitted by {{ pt.submitter.name }} · {{ pt.date }}{% if pt.note %} — {{ pt.note }}{% endif %}</div>
+        </div>
+        <div class="row-actions">
+          <form method="post" action="{{ url_for('transactions.decide') }}" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            {{ decision_form.csrf_token }}
+            <input type="hidden" name="pending_id" value="{{ pt.id }}">
+            <input type="hidden" name="decision" value="confirm">
+            <input type="text" name="amount" placeholder="amount (optional edit)" style="width:150px;">
+            <input type="text" name="date" placeholder="YYYY-MM-DD (optional edit)" style="width:170px;">
+            <button type="submit" class="btn">Confirm</button>
+          </form>
+          <form method="post" action="{{ url_for('transactions.decide') }}" onsubmit="return confirm('Reject this entry?');">
+            {{ decision_form.csrf_token }}
+            <input type="hidden" name="pending_id" value="{{ pt.id }}">
+            <input type="hidden" name="decision" value="reject">
+            <button type="submit" class="btn secondary">Reject</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Backfill an entry directly</div>
+    <p class="panel-caption">For historical entries you already know are correct — skips the confirmation queue, goes straight to the ledger.</p>
+    <form method="post" action="{{ url_for('transactions.backfill') }}">
+      {{ backfill_form.csrf_token }}
+      <div class="form-row">
+        <div class="control-group grow">
+          {{ backfill_form.member_user_id.label }}
+          {{ backfill_form.member_user_id() }}
+        </div>
+        <div class="control-group">
+          {{ backfill_form.entry_type.label }}
+          {{ backfill_form.entry_type() }}
+        </div>
+        <div class="control-group grow">
+          {{ backfill_form.amount.label }}
+          {{ backfill_form.amount(placeholder="e.g. 500.00") }}
+        </div>
+        <div class="control-group grow">
+          {{ backfill_form.date.label }}
+          {{ backfill_form.date(placeholder="YYYY-MM-DD") }}
+        </div>
+        <div class="control-group grow">
+          {{ backfill_form.note.label }}
+          {{ backfill_form.note(placeholder="optional") }}
+        </div>
+      </div>
+      {{ backfill_form.submit(class="btn secondary") }}
+    </form>
+  </div>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  if (window.startPageTour) {
+    window.startPageTour({
+      page: 'transactions',
+      steps: [
+        {
+          selector: '[data-tour="tx-head"]',
+          kicker: 'Transactions · 1 of 3',
+          title: 'Manual ledger entries',
+          body: 'Use this page for cash or EFT that never went through PayFast. Every entry is reviewed before it changes balances.'
+        },
+        {
+          selector: '[data-tour="tx-submit"]',
+          kicker: 'Transactions · 2 of 3',
+          title: 'Submit a contribution or withdrawal',
+          body: 'Pick the type, amount, and date. Your submission sits in a queue until an admin confirms it — so the ledger stays trustworthy.'
+        },
+        {
+          selector: '[data-tour="tx-submissions"]',
+          kicker: 'Transactions · 3 of 3',
+          title: 'Track status & admin queue',
+          body: 'See whether your entries are pending, confirmed, or rejected. Admins also get a confirmation queue and optional backfill tools further down.'
+        }
+      ]
+    });
+  }
+</script>
+{% endblock %}

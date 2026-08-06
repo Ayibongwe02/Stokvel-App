@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}No data{% endblock %}
+{% block content %}
+  {% set is_admin = onboarding_membership and onboarding_membership.role == 'admin' %}
+
+  {% include "_onboarding_checklist.html" %}
+
+  <div class="page-head" data-tour="empty-head">
+    <h1>No data yet</h1>
+    {% if is_admin %}
+    <p>This group doesn't have any transactions loaded. Upload your members' contribution data from the Data Source tab, or pre-register a member first if you haven't added anyone yet.</p>
+    {% else %}
+    <p>This group doesn't have any transactions loaded yet. Ask your admin to add you and upload the group's contribution data — you'll see your balance here as soon as it's in.</p>
+    {% endif %}
+  </div>
+
+  {% if is_admin %}
+  <div class="empty-actions" data-tour="empty-actions">
+    <a class="btn" href="{{ url_for('data_source') }}">Go to Data Source</a>
+    <a class="btn secondary" href="{{ url_for('settings.index') }}">Add a member</a>
+  </div>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  if (window.startPageTour) {
+    window.startPageTour({
+      page: 'empty',
+      steps: [
+        {
+          selector: '[data-tour="empty-head"]',
+          kicker: 'Empty ledger · 1 of 2',
+          title: 'Nothing loaded yet',
+          body: 'This is the empty state for Overview. Charts and balances appear once transactions exist. Prefer a filled demo? Open onboarding with sample data from Groups.'
+        },
+        {
+          selector: '[data-tour="empty-actions"], [data-tour="empty-head"]',
+          kicker: 'Empty ledger · 2 of 2',
+          title: '{% if is_admin %}Next steps for admins{% else %}What you can do{% endif %}',
+          body: '{% if is_admin %}Upload a CSV on Data Source, or pre-register members in Settings. The checklist above tracks those setup steps.{% else %}Ask your admin to add you and upload contribution data — your numbers will show here as soon as they do.{% endif %}'
+        }
+      ]
+    });
+  }
+</script>
+{% endblock %}

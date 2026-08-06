@@ -1,0 +1,16 @@
+{# Per-page guided tour shell. Steps are driven by window.PAGE_TOUR config
+   set in each page's scripts block. Dismissal is localStorage-keyed per page. #}
+<div id="page-tour" class="page-tour" hidden aria-hidden="true">
+  <div class="page-tour-overlay" id="page-tour-overlay"></div>
+  <div class="page-tour-spotlight" id="page-tour-spotlight" aria-hidden="true"></div>
+  <div class="page-tour-card" id="page-tour-card" role="dialog" aria-modal="true" aria-labelledby="page-tour-title">
+    <div class="page-tour-progress" id="page-tour-progress" aria-hidden="true"></div>
+    <div class="page-tour-kicker" id="page-tour-kicker">Page guide</div>
+    <h3 class="page-tour-title" id="page-tour-title"></h3>
+    <p class="page-tour-body" id="page-tour-body"></p>
+    <div class="page-tour-actions">
+      <button type="button" class="btn secondary" id="page-tour-skip">Skip</button>
+      <button type="button" class="btn" id="page-tour-next">Next</button>
+    </div>
+  </div>
+</div>

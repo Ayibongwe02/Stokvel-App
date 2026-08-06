@@ -1,0 +1,39 @@
+{% if checklist %}
+<div class="panel onboarding-checklist" id="onboarding-checklist">
+  <div class="onboarding-checklist-head">
+    <div>
+      <div class="panel-title">Getting your group set up</div>
+      <p class="panel-caption">A few first steps for new admins — dismiss any you don't need.</p>
+    </div>
+    <form method="post" action="{{ url_for('onboarding_progress.hide_checklist') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="onboarding-checklist-close" title="Hide checklist" aria-label="Hide checklist">&times;</button>
+    </form>
+  </div>
+  <ul class="onboarding-checklist-list">
+    {% for step in checklist.steps %}
+    <li class="onboarding-checklist-item{% if step.done %} done{% endif %}">
+      <span class="onboarding-checklist-check" aria-hidden="true">
+        {% if step.done %}
+        <svg viewBox="0 0 20 20" width="13" height="13"><path d="M4 10l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        {% endif %}
+      </span>
+      <div class="onboarding-checklist-body">
+        <div class="onboarding-checklist-title">{{ step.title }}</div>
+        <div class="onboarding-checklist-desc">{{ step.description }}</div>
+      </div>
+      {% if not step.done %}
+      <div class="onboarding-checklist-actions">
+        <a class="btn secondary" href="{{ url_for(step.action_endpoint) }}">{{ step.action_label }}</a>
+        <form method="post" action="{{ url_for('onboarding_progress.dismiss_step') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="step" value="{{ step.key }}">
+          <button type="submit" class="onboarding-checklist-dismiss">Dismiss</button>
+        </form>
+      </div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}

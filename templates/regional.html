@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Regional View{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <span class="eyebrow">Cross-region</span>
+    <h1>Regional View</h1>
+    <p>Compare savings performance across regions.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Regional Summary</div>
+    <div class="table-scroll">
+      <table class="ledger">
+        <thead><tr><th>Region</th><th>Total Contributed</th><th>Total Withdrawn</th><th>Avg. Balance</th><th>Members</th></tr></thead>
+        <tbody>
+          {% for r in reg_summary %}
+          <tr>
+            <td>{{ r.region }}</td>
+            <td>R {{ "{:,.0f}".format(r.total_contrib) }}</td>
+            <td>R {{ "{:,.0f}".format(r.total_withdraw) }}</td>
+            <td>R {{ "{:,.0f}".format(r.avg_balance) }}</td>
+            <td>{{ r.members }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title">Contributions vs Withdrawals</div>
+      <div id="chart-flow" class="chart"></div>
+    </div>
+    <div class="panel">
+      <div id="chart-box" class="chart"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Contribution Frequency by Region</div>
+    <div class="table-scroll">
+      <table class="ledger">
+        <thead>
+          <tr><th>Region</th>{% for c in freq_columns %}<th>{{ c }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+          {% for r in freq_rows %}
+          <tr>
+            <td>{{ r.region }}</td>
+            {% for c in freq_columns %}<td>{{ r[c] }}</td>{% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const figFlow = {{ flow_json | safe }};
+  const figBox = {{ box_json | safe }};
+  Plotly.newPlot('chart-flow', figFlow.data, figFlow.layout, {responsive: true, displaylogo: false});
+  Plotly.newPlot('chart-box', figBox.data, figBox.layout, {responsive: true, displaylogo: false});
+</script>
+{% endblock %}

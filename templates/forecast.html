@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Member Forecast{% endblock %}
+{% block content %}
+  <div class="page-head" data-tour="forecast-head">
+    <span class="eyebrow">Live model</span>
+    <h1>Member Balance Forecast</h1>
+    <p>Statistical forecast of future balance, fitted on the fly from each member's transaction history.</p>
+  </div>
+
+  <form class="panel" method="get" action="{{ url_for('forecast') }}" id="forecast-form" data-tour="forecast-controls">
+    <div class="form-row">
+      <div class="control-group grow">
+        <label for="member">Member</label>
+        <select name="member" id="member" onchange="document.getElementById('forecast-form').requestSubmit()">
+          {% for m in members %}
+            <option value="{{ m }}" {{ 'selected' if m == member }}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="control-group grow">
+        <label for="horizon">Forecast horizon (months) <span class="slider-value" id="horizon-value">{{ horizon }}</span></label>
+        <input type="range" min="1" max="12" name="horizon" id="horizon" value="{{ horizon }}"
+               oninput="document.getElementById('horizon-value').innerText = this.value"
+               onchange="document.getElementById('forecast-form').requestSubmit()">
+      </div>
+    </div>
+  </form>
+
+  <div class="meta-badges" role="list">
+    <span class="badge" role="listitem">Region: {{ meta_m.Region }}</span>
+    <span class="badge teal" role="listitem">Category: {{ meta_m.Member_Category }}</span>
+    <span class="badge" role="listitem">Historical horizon: {{ meta_m.get('Forecast_Horizon', 'n/a') }}</span>
+  </div>
+
+  {% if warning %}
+    <div class="callout error">{{ warning }}</div>
+  {% else %}
+    {% if hw_note %}<div class="callout">{{ hw_note }}</div>{% endif %}
+
+    <div class="panel chart-panel" data-tour="forecast-chart">
+      <div id="chart-forecast" class="chart"></div>
+    </div>
+
+    <div class="panel chart-panel">
+      <div class="panel-title">Contributions vs Withdrawals (2026)</div>
+      {% if flow_json %}
+        <div id="chart-flow" class="chart"></div>
+      {% else %}
+        <p class="panel-caption">No 2026 transaction records for this member.</p>
+      {% endif %}
+    </div>
+
+    <details class="panel series-panel">
+      <summary class="series-summary">View raw historical + transaction data</summary>
+      <div class="table-scroll series-table-wrap">
+        <table class="ledger" style="margin-top:14px;">
+          <thead><tr><th>Date</th><th>Balance</th></tr></thead>
+          <tbody>
+            {% for date, balance in series_table %}
+              <tr><td>{{ date }}</td><td>R {{ "{:,.0f}".format(balance) }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if chart_json %}
+<script>
+  const plotOpts = {responsive: true, displaylogo: false, displayModeBar: false};
+  const figForecast = {{ chart_json | safe }};
+  Plotly.newPlot('chart-forecast', figForecast.data, figForecast.layout, plotOpts);
+  {% if flow_json %}
+  const figFlow = {{ flow_json | safe }};
+  Plotly.newPlot('chart-flow', figFlow.data, figFlow.layout, plotOpts);
+  {% endif %}
+  window.addEventListener('resize', function () {
+    Plotly.Plots.resize('chart-forecast');
+    {% if flow_json %}Plotly.Plots.resize('chart-flow');{% endif %}
+  });
+</script>
+{% endif %}
+<script>
+  if (window.startPageTour) {
+    window.startPageTour({
+      page: 'forecast',
+      steps: [
+        {
+          selector: '[data-tour="forecast-head"]',
+          kicker: 'Forecast · 1 of 3',
+          title: 'Predict member balances',
+          body: 'Holt-Winters runs on each member’s history to project balances forward. In onboarding mode you’re seeing sample series so the charts aren’t empty.'
+        },
+        {
+          selector: '[data-tour="forecast-controls"]',
+          kicker: 'Forecast · 2 of 3',
+          title: 'Pick a member & horizon',
+          body: 'Switch members from the dropdown and drag the horizon slider (1–12 months). The page reloads the model with your choices.'
+        },
+        {
+          selector: '[data-tour="forecast-chart"]',
+          kicker: 'Forecast · 3 of 3',
+          title: 'Read the forecast chart',
+          body: 'The solid line is history; the dashed stretch is the forecast. Below you’ll also find contribution vs withdrawal flow for context.'
+        }
+      ]
+    }, { delay: 700 });
+  }
+</script>
+{% endblock %}

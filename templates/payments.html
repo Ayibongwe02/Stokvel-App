@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Payments{% endblock %}
+{% block content %}
+  <div class="page-head" data-tour="pay-head">
+    <span class="eyebrow">Money</span>
+    <h1>Payments</h1>
+    <p>Contribute via PayFast, and request or approve withdrawals for your group.</p>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel" data-tour="pay-contribute">
+      <div class="panel-title">Contribute</div>
+      <p class="panel-caption">
+        {% if settings.contribution_amount %}
+          Group's agreed contribution: R{{ "%.2f"|format(settings.contribution_amount) }} ({{ settings.contribution_frequency }}).
+        {% else %}
+          No fixed contribution amount set for this group yet.
+        {% endif %}
+      </p>
+      <form method="post" action="{{ url_for('payments.contribute') }}">
+        {{ contribute_form.csrf_token }}
+        <div class="form-row">
+          <div class="control-group grow">
+            {{ contribute_form.amount.label }}
+            {{ contribute_form.amount(placeholder="e.g. 500.00", value=settings.contribution_amount or "") }}
+          </div>
+        </div>
+        {{ contribute_form.submit(class="btn") }}
+      </form>
+    </div>
+
+    <div class="panel" data-tour="pay-withdraw">
+      <div class="panel-title">Request a withdrawal</div>
+      <p class="panel-caption">Requires {{ settings.required_approvals }} admin approval(s){% if settings.withdrawal_approval_threshold %}, or 2+ above R{{ "%.0f"|format(settings.withdrawal_approval_threshold) }}{% endif %}.</p>
+      <form method="post" action="{{ url_for('payments.request_withdrawal') }}">
+        {{ withdraw_form.csrf_token }}
+        <div class="form-row">
+          <div class="control-group grow">
+            {{ withdraw_form.amount.label }}
+            {{ withdraw_form.amount(placeholder="e.g. 1000.00") }}
+          </div>
+          <div class="control-group grow">
+            {{ withdraw_form.member_id.label }}
+            {{ withdraw_form.member_id(placeholder="optional") }}
+          </div>
+          <div class="control-group grow">
+            {{ withdraw_form.reason.label }}
+            {{ withdraw_form.reason(placeholder="optional") }}
+          </div>
+        </div>
+        {{ withdraw_form.submit(class="btn") }}
+      </form>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Withdrawal requests</div>
+    {% if not withdrawals %}
+      <p class="panel-caption">No withdrawal requests yet.</p>
+    {% endif %}
+    {% for wr in withdrawals %}
+      <div class="member-row">
+        <div>
+          <div class="name">R{{ "%.2f"|format(wr.amount) }} — {{ wr.requester.name }}{% if wr.reason %} ({{ wr.reason }}){% endif %}</div>
+          <div class="email">status: {{ wr.status }} · needs {{ wr.approvals_needed }} approval(s), has {{ wr.approvals_count() }}</div>
+        </div>
+        {% if is_admin and wr.status == 'pending' %}
+          <div class="row-actions">
+            <form method="post" action="{{ url_for('payments.decide_withdrawal') }}">
+              {{ decision_form.csrf_token }}
+              <input type="hidden" name="request_id" value="{{ wr.id }}">
+              <input type="hidden" name="decision" value="approved">
+              <button type="submit" class="btn">Approve</button>
+            </form>
+            <form method="post" action="{{ url_for('payments.decide_withdrawal') }}">
+              {{ decision_form.csrf_token }}
+              <input type="hidden" name="request_id" value="{{ wr.id }}">
+              <input type="hidden" name="decision" value="rejected">
+              <button type="submit" class="btn secondary">Reject</button>
+            </form>
+          </div>
+        {% elif is_admin and wr.status == 'approved' %}
+          <form method="post" action="{{ url_for('payments.decide_withdrawal') }}" onsubmit="return confirm('Confirm the EFT was actually sent?');">
+            {{ decision_form.csrf_token }}
+            <input type="hidden" name="request_id" value="{{ wr.id }}">
+            <input type="hidden" name="decision" value="paid">
+            <button type="submit" class="btn secondary">Mark paid</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Your recent contributions</div>
+    {% if not my_payments %}
+      <p class="panel-caption">No contributions yet.</p>
+    {% endif %}
+    {% for p in my_payments %}
+      <div class="member-row">
+        <div>
+          <div class="name">R{{ "%.2f"|format(p.amount) }}</div>
+          <div class="email">{{ p.created_at.strftime("%Y-%m-%d %H:%M") }} · {{ p.status }}</div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  if (window.startPageTour) {
+    window.startPageTour({
+      page: 'payments',
+      steps: [
+        {
+          selector: '[data-tour="pay-head"]',
+          kicker: 'Payments · 1 of 3',
+          title: 'Money in and out',
+          body: 'Contribute through PayFast and request withdrawals here. In onboarding mode nothing is charged — it’s a safe place to learn the flow.'
+        },
+        {
+          selector: '[data-tour="pay-contribute"]',
+          kicker: 'Payments · 2 of 3',
+          title: 'Contribute via PayFast',
+          body: 'Enter an amount (or use the group’s agreed contribution) and you’ll be sent to PayFast to complete payment when you’re on a real group.'
+        },
+        {
+          selector: '[data-tour="pay-withdraw"]',
+          kicker: 'Payments · 3 of 3',
+          title: 'Request a withdrawal',
+          body: 'Withdrawals need admin approval (and sometimes two). Track open requests and your recent contributions further down the page.'
+        }
+      ]
+    });
+  }
+</script>
+{% endblock %}

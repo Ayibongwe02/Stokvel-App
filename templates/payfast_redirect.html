@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting to PayFast…</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
+</head>
+<body>
+  <p>Redirecting to PayFast to complete your payment…</p>
+  <form id="pf-form" action="{{ checkout_url }}" method="post">
+    {% for key, value in payload.items() %}
+      <input type="hidden" name="{{ key }}" value="{{ value }}">
+    {% endfor %}
+  </form>
+  <script>document.getElementById("pf-form").submit();</script>
+</body>
+</html>
